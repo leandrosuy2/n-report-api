@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  cpf        String   @unique
+  avatar     String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Permission    Permission  @relation(fields: [permission_id], references: [id], onDelete: NoAction)
+  permission_id String
+  Ocurrences    Ocurrence[]
+}
+
+model Permission {
+  id         String   @id @default(uuid())
+  role       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Users User[]
+}
+
+model Ocurrence {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  type        String   @default("Crime")
+  latitude    Float
+  longitude   Float
+  date        String
+  time        String
+  resolved    Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  User             User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id          String
+  PoliceStation    PoliceStation? @relation(fields: [policeStation_id], references: [id], onDelete: Cascade)
+  policeStation_id String
+}
+
+model Image {
+  id         String   @id @default(uuid())
+  path       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model PoliceStation {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  phone      String   @unique
+  latitude   Float
+  longitude  Float
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Ocurrences Ocurrence[]
+}
