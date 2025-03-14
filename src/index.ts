@@ -5,21 +5,10 @@ import cors from "cors";
 // Carregar as variáveis de ambiente
 config();
 
-// Configurar CORS
-const allowedOrigins = [
-    "http://localhost:3000", // Permite acesso do frontend que está rodando nesta porta
-    "http://localhost:8080", // Adicione a origem que você está tentando permitir
-];
-
+// Configurar CORS para permitir todas as origens
 app.use(
     cors({
-        origin: (origin, callback) => {
-            if (allowedOrigins.indexOf(origin as string) !== -1 || !origin) {
-                callback(null, true); // Permite a origem
-            } else {
-                callback(new Error("Not allowed by CORS")); // Bloqueia a origem
-            }
-        },
+        origin: "*", // Permite todas as origens
         credentials: true,
     })
 );
