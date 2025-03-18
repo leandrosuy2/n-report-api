@@ -4,48 +4,182 @@ import PoliceStation from "../../models/PoliceStation";
 import User from "../../models/User";
 
 interface IOcurrenceCreateDTO {
-    title: string,
+    title?: string,
     description?: string,
-    type: string,
+    type?: string,
     latitude: number,
     longitude: number,
-    date: string,
-    time: string,
-    policeStation_id: string,
+    date?: string,
+    time?: string,
+    policeStation_id?: string,
 }
+
+interface ErrorResponse {
+    status: number;
+    message: string;
+    details?: any;
+}
+
+const handleError = (error: any): ErrorResponse => {
+    if (error?.code === 'P2002') {
+        return {
+            status: 409,
+            message: "Conflito: Registro duplicado",
+            details: error.meta?.target
+        };
+    }
+    if (error?.code === 'P2025') {
+        return {
+            status: 404,
+            message: "Registro não encontrado",
+            details: error.meta?.cause
+        };
+    }
+    if (error?.code === 'P2003') {
+        return {
+            status: 400,
+            message: "Violação de restrição de chave estrangeira",
+            details: error.meta?.field_name
+        };
+    }
+    return {
+        status: 500,
+        message: "Erro interno do servidor",
+        details: error
+    };
+};
+
+const validateCoordinates = (latitude: number, longitude: number): string | null => {
+    if (isNaN(latitude) || isNaN(longitude)) {
+        return "Latitude e longitude devem ser números válidos";
+    }
+    if (latitude < -90 || latitude > 90) {
+        return "Latitude deve estar entre -90 e 90";
+    }
+    if (longitude < -180 || longitude > 180) {
+        return "Longitude deve estar entre -180 e 180";
+    }
+    return null;
+};
 
 const createOcurrence = async (req: Request, res: Response) => {
     try {
-        const ocurrenceToCreate: IOcurrenceCreateDTO = req.body;
+        const { latitude, longitude, title, description, type, date, time, policeStation_id } = req.body;
 
-        ocurrenceToCreate.latitude = Number(ocurrenceToCreate.latitude);
-        ocurrenceToCreate.longitude = Number(ocurrenceToCreate.longitude);
-
-        const userExist = await User.findUnique({
-            where: {
-                id: req.userId
-            }
-        })
-
-        if (!userExist) {
-            return res.status(404).send({ message: "User not found!" });
+        // Validar campos obrigatórios
+        if (!latitude || !longitude) {
+            return res.status(400).json({
+                status: "error",
+                message: "Latitude e longitude são obrigatórios",
+                code: "MISSING_COORDINATES"
+            });
         }
 
-        const policeStation = await PoliceStation.findUnique({
-            where: {
-                id: ocurrenceToCreate.policeStation_id
-            }
-        })
+        // Validar coordenadas
+        const coordError = validateCoordinates(Number(latitude), Number(longitude));
+        if (coordError) {
+            return res.status(400).json({
+                status: "error",
+                message: coordError,
+                code: "INVALID_COORDINATES"
+            });
+        }
 
-        if (!policeStation) {
-            return res.status(404).send({ message: "Police Station not found!" });
+        const ocurrenceData: any = {
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            user_id: req.userId,
+        };
+
+        // Validar e adicionar campos opcionais
+        if (title) {
+            if (typeof title !== 'string' || title.length > 255) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Título inválido: deve ser uma string com no máximo 255 caracteres",
+                    code: "INVALID_TITLE"
+                });
+            }
+            ocurrenceData.title = title;
+        }
+
+        if (description) {
+            if (typeof description !== 'string') {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Descrição inválida: deve ser uma string",
+                    code: "INVALID_DESCRIPTION"
+                });
+            }
+            ocurrenceData.description = description;
+        }
+
+        if (type) {
+            if (typeof type !== 'string' || !['ROUBO', 'FURTO', 'HOMICIDIO', 'OUTROS'].includes(type.toUpperCase())) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Tipo inválido: deve ser ROUBO, FURTO, HOMICIDIO ou OUTROS",
+                    code: "INVALID_TYPE"
+                });
+            }
+            ocurrenceData.type = type.toUpperCase();
+        }
+
+        if (date) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(date)) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Data inválida: use o formato YYYY-MM-DD",
+                    code: "INVALID_DATE"
+                });
+            }
+            ocurrenceData.date = date;
+        }
+
+        if (time) {
+            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+            if (!timeRegex.test(time)) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Hora inválida: use o formato HH:MM:SS",
+                    code: "INVALID_TIME"
+                });
+            }
+            ocurrenceData.time = time;
+        }
+
+        // Verificar usuário
+        const userExist = await User.findUnique({
+            where: { id: req.userId }
+        });
+
+        if (!userExist) {
+            return res.status(404).json({
+                status: "error",
+                message: "Usuário não encontrado",
+                code: "USER_NOT_FOUND"
+            });
+        }
+
+        // Verificar delegacia se fornecida
+        if (policeStation_id) {
+            const policeStation = await PoliceStation.findUnique({
+                where: { id: policeStation_id }
+            });
+
+            if (!policeStation) {
+                return res.status(404).json({
+                    status: "error",
+                    message: "Delegacia não encontrada",
+                    code: "POLICE_STATION_NOT_FOUND"
+                });
+            }
+            ocurrenceData.policeStation_id = policeStation_id;
         }
 
         const ocurrenceResponse = await Ocurrence.create({
-            data: {
-                ...ocurrenceToCreate,
-                user_id: userExist.id,
-            },
+            data: ocurrenceData,
             select: {
                 id: true,
                 title: true,
@@ -70,20 +204,106 @@ const createOcurrence = async (req: Request, res: Response) => {
                     }
                 }
             }
-        })
+        });
 
-        res.status(200).send(ocurrenceResponse);
+        return res.status(201).json({
+            status: "success",
+            message: "Ocorrência criada com sucesso",
+            data: ocurrenceResponse
+        });
+
     } catch (error) {
-        console.error("Detailed Error:", error);
-        res.status(500).send({
-            message: "Error on try create Ocurrence",
-            error: error
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
+    }
+}
+
+const createQuickOcurrence = async (req: Request, res: Response) => {
+    try {
+        const { latitude, longitude } = req.body;
+
+        // Validar campos obrigatórios
+        if (!latitude || !longitude) {
+            return res.status(400).json({
+                status: "error",
+                message: "Latitude e longitude são obrigatórios",
+                code: "MISSING_COORDINATES"
+            });
+        }
+
+        // Validar coordenadas
+        const coordError = validateCoordinates(Number(latitude), Number(longitude));
+        if (coordError) {
+            return res.status(400).json({
+                status: "error",
+                message: coordError,
+                code: "INVALID_COORDINATES"
+            });
+        }
+
+        // Verificar usuário
+        const userExist = await User.findUnique({
+            where: { id: req.userId }
+        });
+
+        if (!userExist) {
+            return res.status(404).json({
+                status: "error",
+                message: "Usuário não encontrado",
+                code: "USER_NOT_FOUND"
+            });
+        }
+
+        const ocurrenceResponse = await Ocurrence.create({
+            data: {
+                latitude: Number(latitude),
+                longitude: Number(longitude),
+                user_id: req.userId,
+                type: "Não especificado",
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toTimeString().split(' ')[0]
+            },
+            select: {
+                id: true,
+                latitude: true,
+                longitude: true,
+                type: true,
+                date: true,
+                time: true,
+                resolved: true,
+                User: {
+                    select: {
+                        id: true,
+                        name: true,
+                        avatar: true,
+                    }
+                }
+            }
+        });
+
+        return res.status(201).json({
+            status: "success",
+            message: "Ocorrência rápida criada com sucesso",
+            data: ocurrenceResponse
+        });
+
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
         });
     }
 }
 
 const findAll = async (req: Request, res: Response) => {
-
     try {
         const allOcurrences = await Ocurrence.findMany({
             select: {
@@ -113,19 +333,29 @@ const findAll = async (req: Request, res: Response) => {
             }
         });
 
-        res.status(200).send(allOcurrences);
-    } catch (error: any) {
-        res.status(500).send({
-            message: "Error on try find all ocurrences"
-        })
+        return res.status(200).json({
+            status: "success",
+            message: "Ocorrências listadas com sucesso",
+            data: allOcurrences
+        });
+
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 const findAllSelf = async (req: Request, res: Response) => {
-    const user = req.userId;
-
     try {
         const allOcurrences = await Ocurrence.findMany({
+            where: {
+                user_id: req.userId
+            },
             select: {
                 id: true,
                 title: true,
@@ -150,96 +380,136 @@ const findAllSelf = async (req: Request, res: Response) => {
                         phone: true,
                     }
                 },
-            },
-            where: {
-                user_id: user
             }
         });
 
-        res.status(200).send(allOcurrences);
-    } catch (error: any) {
-        res.status(500).send({
-            message: "Error on try find all ocurrences"
-        })
+        return res.status(200).json({
+            status: "success",
+            message: "Suas ocorrências foram listadas com sucesso",
+            data: allOcurrences
+        });
+
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 const ocurrenceCount = async (req: Request, res: Response) => {
     try {
-        const response = await Ocurrence.count();
+        const count = await Ocurrence.count();
 
-        res.status(200).send({count: response});
+        return res.status(200).json({
+            status: "success",
+            message: "Contagem de ocorrências realizada com sucesso",
+            data: { count }
+        });
+
     } catch (error) {
-        res.status(500).send({
-            message: "Error on try count all ocurrences",
-            error,
-        })
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 const ocurrenceCountSelf = async (req: Request, res: Response) => {
-    const user = req.userId;
-
     try {
-        const allOcurrences = await Ocurrence.count({
+        const count = await Ocurrence.count({
             where: {
-                user_id: user,
+                user_id: req.userId
             }
         });
 
-        res.status(200).send({count: allOcurrences});
+        return res.status(200).json({
+            status: "success",
+            message: "Contagem das suas ocorrências realizada com sucesso",
+            data: { count }
+        });
+
     } catch (error) {
-        res.status(500).send({
-            message: "Error on try find all ocurrences",
-            error,
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
         });
     }
 }
 
 const murderCount = async (req: Request, res: Response) => {
     try {
-        const response = await Ocurrence.count({
+        const count = await Ocurrence.count({
             where: {
-                type: 'homicidio',
+                type: 'HOMICIDIO'
             }
         });
 
-        res.status(200).send({count: response});
+        return res.status(200).json({
+            status: "success",
+            message: "Contagem de homicídios realizada com sucesso",
+            data: { count }
+        });
 
     } catch (error) {
-        res.status(500).send({
-            message: 'Error on try to find all murders',
-            error,
-        })
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 const theftCount = async (req: Request, res: Response) => {
     try {
-        const response = await Ocurrence.count({
+        const count = await Ocurrence.count({
             where: {
-                type: 'furto',
+                type: 'FURTO'
             }
         });
 
-        res.status(200).send({count: response});
+        return res.status(200).json({
+            status: "success",
+            message: "Contagem de furtos realizada com sucesso",
+            data: { count }
+        });
+
     } catch (error) {
-        res.status(500).send({
-            message: 'Error on try to find all thefts',
-            error,
-        })
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
-} 
+}
 
 const findById = async (req: Request, res: Response) => {
     try {
-        const id = req.params?.id;
-        const user = req.userId;
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                status: "error",
+                message: "ID da ocorrência é obrigatório",
+                code: "MISSING_ID"
+            });
+        }
 
         const ocurrence = await Ocurrence.findFirst({
-            where: {
-                id,
-            },
+            where: { id },
             select: {
                 id: true,
                 title: true,
@@ -266,69 +536,175 @@ const findById = async (req: Request, res: Response) => {
             }
         });
 
-
         if (!ocurrence) {
-            return res.status(404).send({ message: "Ocurrence not found!" });
+            return res.status(404).json({
+                status: "error",
+                message: "Ocorrência não encontrada",
+                code: "OCCURRENCE_NOT_FOUND"
+            });
         }
 
-        res.status(200).send(ocurrence);
-    } catch (error: any) {
-        res.status(500).send({ message: "Error on try find an ocurrence" });
+        return res.status(200).json({
+            status: "success",
+            message: "Ocorrência encontrada com sucesso",
+            data: ocurrence
+        });
+
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 const update = async (req: Request, res: Response) => {
     try {
-        const id = req.params?.id;
-        const idUser = req.userId;
+        const { id } = req.params;
+        const { latitude, longitude, title, description, type, date, time, policeStation_id } = req.body;
 
-        const user = await User.findFirst({
-            select: {
-                Permission: {
-                    select: {
-                        role: true
-                    }
-                }
-            },
-            where: {
-                id: idUser
-            }
-        });
-
-        const ocurrenceToUpdate: IOcurrenceCreateDTO = req.body;
-
-        ocurrenceToUpdate.latitude = Number(ocurrenceToUpdate.latitude);
-        ocurrenceToUpdate.longitude = Number(ocurrenceToUpdate.longitude);
-
-
-        let whereFromUpdate;
-
-        if (user?.Permission.role === 'admin') {
-            whereFromUpdate = {
-                id: id
-            }
-        } else {
-            whereFromUpdate = {
-                id: id,
-                user_id: idUser,
-            }
-
+        if (!id) {
+            return res.status(400).json({
+                status: "error",
+                message: "ID da ocorrência é obrigatório",
+                code: "MISSING_ID"
+            });
         }
 
-        const ocurrence = await Ocurrence.update({
-            where: whereFromUpdate,
-            data: {
-                ...ocurrenceToUpdate,
-            },
+        // Verificar se a ocorrência existe
+        const existingOcurrence = await Ocurrence.findUnique({
+            where: { id }
+        });
+
+        if (!existingOcurrence) {
+            return res.status(404).json({
+                status: "error",
+                message: "Ocorrência não encontrada",
+                code: "OCCURRENCE_NOT_FOUND"
+            });
+        }
+
+        // Validar campos obrigatórios
+        if (!latitude || !longitude) {
+            return res.status(400).json({
+                status: "error",
+                message: "Latitude e longitude são obrigatórios",
+                code: "MISSING_COORDINATES"
+            });
+        }
+
+        // Validar coordenadas
+        const coordError = validateCoordinates(Number(latitude), Number(longitude));
+        if (coordError) {
+            return res.status(400).json({
+                status: "error",
+                message: coordError,
+                code: "INVALID_COORDINATES"
+            });
+        }
+
+        const updateData: any = {
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+        };
+
+        // Validar e adicionar campos opcionais
+        if (title !== undefined) {
+            if (typeof title !== 'string' || title.length > 255) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Título inválido: deve ser uma string com no máximo 255 caracteres",
+                    code: "INVALID_TITLE"
+                });
+            }
+            updateData.title = title;
+        }
+
+        if (description !== undefined) {
+            if (typeof description !== 'string') {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Descrição inválida: deve ser uma string",
+                    code: "INVALID_DESCRIPTION"
+                });
+            }
+            updateData.description = description;
+        }
+
+        if (type !== undefined) {
+            if (typeof type !== 'string' || !['ROUBO', 'FURTO', 'HOMICIDIO', 'OUTROS'].includes(type.toUpperCase())) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Tipo inválido: deve ser ROUBO, FURTO, HOMICIDIO ou OUTROS",
+                    code: "INVALID_TYPE"
+                });
+            }
+            updateData.type = type.toUpperCase();
+        }
+
+        if (date !== undefined) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(date)) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Data inválida: use o formato YYYY-MM-DD",
+                    code: "INVALID_DATE"
+                });
+            }
+            updateData.date = date;
+        }
+
+        if (time !== undefined) {
+            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+            if (!timeRegex.test(time)) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Hora inválida: use o formato HH:MM:SS",
+                    code: "INVALID_TIME"
+                });
+            }
+            updateData.time = time;
+        }
+
+        // Verificar delegacia se fornecida
+        if (policeStation_id !== undefined) {
+            if (policeStation_id) {
+                const policeStation = await PoliceStation.findUnique({
+                    where: { id: policeStation_id }
+                });
+
+                if (!policeStation) {
+                    return res.status(404).json({
+                        status: "error",
+                        message: "Delegacia não encontrada",
+                        code: "POLICE_STATION_NOT_FOUND"
+                    });
+                }
+                updateData.policeStation_id = policeStation_id;
+            } else {
+                updateData.policeStation_id = null;
+            }
+        }
+
+        const updatedOcurrence = await Ocurrence.update({
+            where: { id },
+            data: updateData,
             select: {
                 id: true,
+                title: true,
                 description: true,
                 type: true,
                 latitude: true,
                 longitude: true,
+                date: true,
+                time: true,
                 resolved: true,
                 User: {
                     select: {
+                        id: true,
                         name: true,
                         avatar: true,
                     }
@@ -340,65 +716,91 @@ const update = async (req: Request, res: Response) => {
                     }
                 }
             }
-        })
+        });
 
-        if (!ocurrence) {
-            return res.status(404).send({ message: "Ocurrence not found!" })
-        }
+        return res.status(200).json({
+            status: "success",
+            message: "Ocorrência atualizada com sucesso",
+            data: updatedOcurrence
+        });
 
-        res.status(200).send(ocurrence);
-    } catch (error: any) {
-        console.log(error)
-        res.status(500).send({ message: "Error on try update ocurrence" })
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 const remove = async (req: Request, res: Response) => {
     try {
-        const id = req.params?.id;
+        const { id } = req.params;
 
+        if (!id) {
+            return res.status(400).json({
+                status: "error",
+                message: "ID da ocorrência é obrigatório",
+                code: "MISSING_ID"
+            });
+        }
+
+        // Verificar permissões do usuário
         const user = await User.findFirst({
+            where: { id: req.userId },
             select: {
                 Permission: {
-                    select: {
-                        role: true
-                    }
+                    select: { role: true }
                 }
-            },
-            where: {
-                id: req.userId
             }
         });
 
-        let ocurrence;
-
-        if (user?.Permission.role === 'admin') {
-            ocurrence = await Ocurrence.delete({
-                where: {
-                    id,
-                }
-            })
-        } else {
-            ocurrence = await Ocurrence.delete({
-                where: {
-                    id,
-                    user_id: req.userId,
-                }
-            })
+        if (!user) {
+            return res.status(404).json({
+                status: "error",
+                message: "Usuário não encontrado",
+                code: "USER_NOT_FOUND"
+            });
         }
 
-        if (!ocurrence) {
-            return res.status(404).send("Ocurrence not found!")
+        // Definir condições de exclusão baseadas na permissão
+        const deleteConditions = user.Permission.role === 'admin'
+            ? { id }
+            : { id, user_id: req.userId };
+
+        const deletedOcurrence = await Ocurrence.delete({
+            where: deleteConditions
+        });
+
+        if (!deletedOcurrence) {
+            return res.status(404).json({
+                status: "error",
+                message: "Ocorrência não encontrada ou você não tem permissão para excluí-la",
+                code: "OCCURRENCE_NOT_FOUND_OR_UNAUTHORIZED"
+            });
         }
 
-        return res.status(200).send({ message: "Ocurrence deleted" })
-    } catch (error: any) {
-        res.status(500).send({ message: "Error on try delete ocurrence!" })
+        return res.status(200).json({
+            status: "success",
+            message: "Ocorrência excluída com sucesso"
+        });
+
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
     }
 }
 
 export default {
     createOcurrence,
+    createQuickOcurrence,
     findAll,
     findAllSelf,
     ocurrenceCount,
@@ -408,4 +810,4 @@ export default {
     findById,
     update,
     remove,
-}
+};

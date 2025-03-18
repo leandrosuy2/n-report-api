@@ -89,18 +89,19 @@ npm start
 - DELETE `/police-stations/:id` - Remove uma delegacia
 
 ### Ocorrências
-- GET `/occurrences` - Lista todas as ocorrências
-- POST `/occurrences` - Registra uma nova ocorrência
-- GET `/occurrences/:id` - Obtém uma ocorrência específica
-- PUT `/occurrences/:id` - Atualiza uma ocorrência
-- DELETE `/occurrences/:id` - Remove uma ocorrência
+- GET `/api/v1/occurrences` - Lista todas as ocorrências
+- POST `/api/v1/occurrences/quick` - Registra uma ocorrência rápida (apenas latitude e longitude)
+- POST `/api/v1/occurrences/save` - Registra uma ocorrência completa (apenas latitude e longitude são obrigatórios)
+- GET `/api/v1/occurrences/:id` - Obtém uma ocorrência específica
+- PUT `/api/v1/occurrences/:id` - Atualiza uma ocorrência (apenas latitude e longitude são obrigatórios)
+- DELETE `/api/v1/occurrences/:id` - Remove uma ocorrência
 
 ### Imagens
-- POST `/images/upload` - Upload de uma nova imagem (requer autenticação)
-- GET `/images/my-images` - Lista todas as imagens do usuário logado
-- GET `/images/:id` - Obtém uma imagem específica do usuário logado
-- PUT `/images/:id` - Atualiza uma imagem existente do usuário logado
-- DELETE `/images/:id` - Remove uma imagem do usuário logado
+- POST `/api/v1/images/upload` - Upload de uma nova imagem (requer autenticação)
+- GET `/api/v1/images/my-images` - Lista todas as imagens do usuário logado
+- GET `/api/v1/images/:id` - Obtém uma imagem específica do usuário logado
+- PUT `/api/v1/images/:id` - Atualiza uma imagem existente do usuário logado
+- DELETE `/api/v1/images/:id` - Remove uma imagem do usuário logado
 
 ### Permissões
 - GET `/permissions` - Lista todas as permissões
@@ -254,49 +255,71 @@ curl -X DELETE http://localhost:3000/police-stations/1 \
 
 **Listar Ocorrências:**
 ```bash
-curl -X GET http://localhost:3000/occurrences \
+curl -X GET http://localhost:3000/api/v1/occurrences \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
-**Criar Ocorrência:**
+**Criar Ocorrência Rápida (Apenas Localização):**
 ```bash
-curl -X POST http://localhost:3000/occurrences \
+curl -X POST http://localhost:3000/api/v1/occurrences/quick \
   -H "Authorization: Bearer seu_token_jwt" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Título da Ocorrência",
-    "description": "Descrição detalhada da ocorrência",
-    "latitude": -7.123456,
-    "longitude": -34.123456,
-    "date": "2024-03-18T10:00:00Z",
-    "type": "ROUBO"
+    "latitude": -7.123456,    # Obrigatório
+    "longitude": -34.123456   # Obrigatório
+  }'
+```
+
+**Criar Ocorrência Completa:**
+```bash
+curl -X POST http://localhost:3000/api/v1/occurrences/save \
+  -H "Authorization: Bearer seu_token_jwt" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "latitude": -7.123456,    # Obrigatório
+    "longitude": -34.123456,  # Obrigatório
+    "title": "Título da Ocorrência",        # Opcional
+    "description": "Descrição detalhada",   # Opcional
+    "date": "2024-03-18T10:00:00Z",        # Opcional (data atual se não informada)
+    "type": "ROUBO"                        # Opcional
   }'
 ```
 
 **Obter Ocorrência Específica:**
 ```bash
-curl -X GET http://localhost:3000/occurrences/1 \
+curl -X GET http://localhost:3000/api/v1/occurrences/1 \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
-**Atualizar Ocorrência:**
+**Atualizar Ocorrência (Mínimo):**
 ```bash
-curl -X PUT http://localhost:3000/occurrences/1 \
+curl -X PUT http://localhost:3000/api/v1/occurrences/1 \
   -H "Authorization: Bearer seu_token_jwt" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Novo Título",
-    "description": "Nova descrição",
-    "latitude": -7.123456,
-    "longitude": -34.123456,
-    "date": "2024-03-18T10:00:00Z",
-    "type": "ROUBO"
+    "latitude": -7.123456,    # Obrigatório
+    "longitude": -34.123456   # Obrigatório
+  }'
+```
+
+**Atualizar Ocorrência (Completa):**
+```bash
+curl -X PUT http://localhost:3000/api/v1/occurrences/1 \
+  -H "Authorization: Bearer seu_token_jwt" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "latitude": -7.123456,    # Obrigatório
+    "longitude": -34.123456,  # Obrigatório
+    "title": "Novo Título",                 # Opcional
+    "description": "Nova descrição",        # Opcional
+    "date": "2024-03-18T10:00:00Z",        # Opcional
+    "type": "ROUBO"                        # Opcional
   }'
 ```
 
 **Deletar Ocorrência:**
 ```bash
-curl -X DELETE http://localhost:3000/occurrences/1 \
+curl -X DELETE http://localhost:3000/api/v1/occurrences/1 \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
@@ -304,33 +327,33 @@ curl -X DELETE http://localhost:3000/occurrences/1 \
 
 **Upload de Imagem:**
 ```bash
-curl -X POST http://localhost:3000/images/upload \
+curl -X POST http://localhost:3000/api/v1/images/upload \
   -H "Authorization: Bearer seu_token_jwt" \
   -F "image=@/caminho/para/sua/imagem.jpg"
 ```
 
 **Listar Minhas Imagens:**
 ```bash
-curl -X GET http://localhost:3000/images/my-images \
+curl -X GET http://localhost:3000/api/v1/images/my-images \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
 **Obter Imagem Específica:**
 ```bash
-curl -X GET http://localhost:3000/images/1 \
+curl -X GET http://localhost:3000/api/v1/images/1 \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
 **Atualizar Imagem:**
 ```bash
-curl -X PUT http://localhost:3000/images/1 \
+curl -X PUT http://localhost:3000/api/v1/images/1 \
   -H "Authorization: Bearer seu_token_jwt" \
   -F "image=@/caminho/para/nova/imagem.jpg"
 ```
 
 **Deletar Imagem:**
 ```bash
-curl -X DELETE http://localhost:3000/images/1 \
+curl -X DELETE http://localhost:3000/api/v1/images/1 \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
@@ -354,18 +377,4 @@ curl -X POST http://localhost:3000/permissions \
 ```
 
 **Atualizar Permissão:**
-```bash
-curl -X PUT http://localhost:3000/permissions/1 \
-  -H "Authorization: Bearer seu_token_jwt" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "USER",
-    "description": "Permissão de usuário comum"
-  }'
-```
-
-**Deletar Permissão:**
-```bash
-curl -X DELETE http://localhost:3000/permissions/1 \
-  -H "Authorization: Bearer seu_token_jwt"
 ```

@@ -7,6 +7,9 @@ import multer from "multer";
 const ocurrenceRouter = Router();
 const upload = multer(uploadsConfig);
 
+// Rota para ocorrência rápida (apenas localização)
+ocurrenceRouter.post("/quick", authentication, OcurrenceController.createQuickOcurrence);
+
 ocurrenceRouter.post("/save", authentication, OcurrenceController.createOcurrence);
 ocurrenceRouter.get("/", authentication, OcurrenceController.findAll);
 ocurrenceRouter.get("/self", authentication, OcurrenceController.findAllSelf);

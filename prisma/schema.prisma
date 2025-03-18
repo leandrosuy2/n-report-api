@@ -33,13 +33,13 @@ model Permission {
 
 model Ocurrence {
   id          String   @id @default(uuid())
-  title       String
+  title       String?
   description String?
-  type        String   @default("Crime")
+  type        String?  @default("Crime")
   latitude    Float
   longitude   Float
-  date        String
-  time        String
+  date        String?
+  time        String?
   resolved    Boolean  @default(false)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
@@ -47,7 +47,9 @@ model Ocurrence {
   User             User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id          String
   PoliceStation    PoliceStation? @relation(fields: [policeStation_id], references: [id], onDelete: Cascade)
-  policeStation_id String
+  policeStation_id String?
+
+  @@map("ocurrences")
 }
 
 model Image {
