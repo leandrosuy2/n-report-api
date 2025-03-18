@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Ocurrence from "../../models/Ocurrence";
 import PoliceStation from "../../models/PoliceStation";
 import User from "../../models/User";
+import { createNotification } from "../../utils/notifications";
 
 interface IOcurrenceCreateDTO {
     title?: string,
@@ -205,6 +206,13 @@ const createOcurrence = async (req: Request, res: Response) => {
                 }
             }
         });
+
+        // Após criar a ocorrência, cria uma notificação
+        createNotification(
+            req.userId,
+            "Nova Ocorrência",
+            `Nova ocorrência registrada em: ${latitude}, ${longitude}`
+        );
 
         return res.status(201).json({
             status: "success",

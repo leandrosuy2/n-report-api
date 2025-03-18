@@ -20,7 +20,7 @@ const authorizationAdmin = async (req: Request, res: Response, next: NextFunctio
             }
         })
 
-        if (user?.Permission.role !== "admin") {
+        if (user?.Permission.role !== "ADMIN") {
             return res.status(403).send({
                 message: unauthorizedMessage
             })
