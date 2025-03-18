@@ -66,37 +66,38 @@ const login = async (req: Request, res: Response) => {
 
 const signup = async (req: Request, res: Response) => {
     try {
-        const userToCreate: IUserCreateDTO = req.body;
+        const userToCreate = req.body;
 
-        userToCreate.password = await createHashPassword(userToCreate.password);
-
-        const userPermission = await Permission.findFirst({ where: { role: 'user' } });
+        // Busca a permissão USER
+        const userPermission = await Permission.findFirst({
+            where: {
+                role: 'USER'
+            }
+        });
 
         if (!userPermission) {
-            return res.status(400).send({ message: "User role not found" });
+            return res.status(404).json({ message: "User role not found" });
         }
 
-        const userResponse = await User.create({
-            data: {
-                ...userToCreate,
-                avatar: '',
-                permission_id: userPermission.id
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                password: true
-            }
-        })
+        // Cria o hash da senha
+        userToCreate.password = await createHashPassword(userToCreate.password);
 
-        res.status(200).send(userResponse)
-    } catch (error: any) {
-        res.status(500).send({
-            message: "Error on try create User",
-            error
-        })
-        console.error("Error on try create User: ", error);
+        // Adiciona a permissão padrão
+        userToCreate.permission_id = userPermission.id;
+        
+        // Adiciona um avatar padrão se não foi fornecido
+        if (!userToCreate.avatar) {
+            userToCreate.avatar = 'default.png';
+        }
+
+        const user = await User.create({
+            data: userToCreate
+        });
+
+        return res.status(201).json(user);
+    } catch (error) {
+        console.error('Erro ao criar usuário:', error);
+        return res.status(500).json({ message: "Internal server error" });
     }
 }
 

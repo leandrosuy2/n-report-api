@@ -255,13 +255,13 @@ curl -X DELETE http://localhost:3000/police-stations/1 \
 
 **Listar Ocorrências:**
 ```bash
-curl -X GET http://localhost:3000/api/v1/occurrences \
+curl -X GET http://localhost:3000/api/v1/ocurrences \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
 **Criar Ocorrência Rápida (Apenas Localização):**
 ```bash
-curl -X POST http://localhost:3000/api/v1/occurrences/quick \
+curl -X POST http://localhost:3000/api/v1/ocurrences/quick \
   -H "Authorization: Bearer seu_token_jwt" \
   -H "Content-Type: application/json" \
   -d '{
@@ -272,7 +272,7 @@ curl -X POST http://localhost:3000/api/v1/occurrences/quick \
 
 **Criar Ocorrência Completa:**
 ```bash
-curl -X POST http://localhost:3000/api/v1/occurrences/save \
+curl -X POST http://localhost:3000/api/v1/ocurrences/save \
   -H "Authorization: Bearer seu_token_jwt" \
   -H "Content-Type: application/json" \
   -d '{
@@ -287,13 +287,13 @@ curl -X POST http://localhost:3000/api/v1/occurrences/save \
 
 **Obter Ocorrência Específica:**
 ```bash
-curl -X GET http://localhost:3000/api/v1/occurrences/1 \
+curl -X GET http://localhost:3000/api/v1/ocurrences/1 \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
 **Atualizar Ocorrência (Mínimo):**
 ```bash
-curl -X PUT http://localhost:3000/api/v1/occurrences/1 \
+curl -X PUT http://localhost:3000/api/v1/ocurrences/1 \
   -H "Authorization: Bearer seu_token_jwt" \
   -H "Content-Type: application/json" \
   -d '{
@@ -304,7 +304,7 @@ curl -X PUT http://localhost:3000/api/v1/occurrences/1 \
 
 **Atualizar Ocorrência (Completa):**
 ```bash
-curl -X PUT http://localhost:3000/api/v1/occurrences/1 \
+curl -X PUT http://localhost:3000/api/v1/ocurrences/1 \
   -H "Authorization: Bearer seu_token_jwt" \
   -H "Content-Type: application/json" \
   -d '{
@@ -319,7 +319,7 @@ curl -X PUT http://localhost:3000/api/v1/occurrences/1 \
 
 **Deletar Ocorrência:**
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/occurrences/1 \
+curl -X DELETE http://localhost:3000/api/v1/ocurrences/1 \
   -H "Authorization: Bearer seu_token_jwt"
 ```
 
@@ -377,4 +377,153 @@ curl -X POST http://localhost:3000/permissions \
 ```
 
 **Atualizar Permissão:**
+```bash
+curl -X PUT http://localhost:3000/permissions/1 \
+  -H "Authorization: Bearer seu_token_jwt" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "ADMIN",
+    "description": "Permissão de administrador"
+  }'
 ```
+
+**Deletar Permissão:**
+```bash
+curl -X DELETE http://localhost:3000/permissions/1 \
+  -H "Authorization: Bearer seu_token_jwt"
+```
+
+## 🔑 Autenticação
+
+### Criar Conta (Sign Up)
+```bash
+curl --location 'http://localhost:3000/auth/signup' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "name": "Usuario",
+    "email": "usuario@email.com",
+    "password": "12345672",
+    "cpf": "22222222222"
+}'
+```
+
+### Login
+```bash
+curl --location 'http://localhost:3000/auth/signin' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "email": "usuario@email.com",
+    "password": "12345672"
+}'
+```
+
+## 📝 Ocurrences (Ocorrências)
+
+### Criar Ocorrência Rápida
+```bash
+curl --location 'http://localhost:3000/api/v1/ocurrences/quick' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer seu_token_aqui' \
+--data '{
+    "latitude": -23.550520,
+    "longitude": -46.633308
+}'
+```
+
+### Criar Ocorrência Completa
+```bash
+curl --location 'http://localhost:3000/api/v1/ocurrences' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer seu_token_aqui' \
+--data '{
+    "title": "Título da Ocorrência",
+    "description": "Descrição detalhada",
+    "type": "Crime",
+    "latitude": -23.550520,
+    "longitude": -46.633308,
+    "date": "2024-03-18",
+    "time": "14:30"
+}'
+```
+
+### Listar Todas as Ocorrências
+```bash
+curl --location 'http://localhost:3000/api/v1/ocurrences' \
+--header 'Authorization: Bearer seu_token_aqui'
+```
+
+### Listar Minhas Ocorrências
+```bash
+curl --location 'http://localhost:3000/api/v1/ocurrences/self' \
+--header 'Authorization: Bearer seu_token_aqui'
+```
+
+### Buscar Ocorrência por ID
+```bash
+curl --location 'http://localhost:3000/api/v1/ocurrences/{id}' \
+--header 'Authorization: Bearer seu_token_aqui'
+```
+
+### Atualizar Ocorrência
+```bash
+curl --location --request PUT 'http://localhost:3000/api/v1/ocurrences/{id}' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer seu_token_aqui' \
+--data '{
+    "title": "Novo Título",
+    "description": "Nova Descrição",
+    "resolved": true
+}'
+```
+
+### Deletar Ocorrência
+```bash
+curl --location --request DELETE 'http://localhost:3000/api/v1/ocurrences/{id}' \
+--header 'Authorization: Bearer seu_token_aqui'
+```
+
+## 👮 Delegacias
+
+### Listar Delegacias
+```bash
+curl --location 'http://localhost:3000/api/v1/police-stations' \
+--header 'Authorization: Bearer seu_token_aqui'
+```
+
+### Criar Delegacia
+```bash
+curl --location 'http://localhost:3000/api/v1/police-stations' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer seu_token_aqui' \
+--data '{
+    "name": "1ª Delegacia",
+    "email": "delegacia@email.com",
+    "phone": "11999999999",
+    "latitude": -23.550520,
+    "longitude": -46.633308
+}'
+```
+
+## 👤 Usuários
+
+### Atualizar Perfil
+```bash
+curl --location --request PUT 'http://localhost:3000/api/v1/users/profile' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer seu_token_aqui' \
+--data '{
+    "name": "Novo Nome",
+    "email": "novo@email.com"
+}'
+```
+
+### Upload de Avatar
+```bash
+curl --location 'http://localhost:3000/api/v1/users/avatar' \
+--header 'Authorization: Bearer seu_token_aqui' \
+--form 'avatar=@"/caminho/para/imagem.jpg"'
+```
+
+## 🔐 Credenciais Padrão
+
+### Usuário Admin

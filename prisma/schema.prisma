@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -20,6 +21,7 @@ model User {
   Permission    Permission  @relation(fields: [permission_id], references: [id], onDelete: NoAction)
   permission_id String
   Ocurrences    Ocurrence[]
+  images        Image[]
 }
 
 model Permission {

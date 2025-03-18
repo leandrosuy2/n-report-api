@@ -1,15 +1,19 @@
-FROM node:20.11.1
+FROM node:18
 
 WORKDIR /nreportapi
 
-RUN apt-get update && apt-get upgrade -y
+# Instala o netcat para verificar disponibilidade do banco
+RUN apt-get update && apt-get install -y netcat-openbsd
 
-COPY package*.json .
+COPY package*.json ./
+COPY prisma ./prisma/
+COPY scripts ./scripts/
 
 RUN npm install
+RUN chmod +x ./scripts/init.sh
 
 COPY . .
 
 EXPOSE 3000
 
-CMD ["bash", "-c", "sleep 10 && npx prisma migrate dev && npm run start"]
+CMD ["./scripts/init.sh"]

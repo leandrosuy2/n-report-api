@@ -1,31 +1,28 @@
-version: "3.8"
-services:
-  db-postgres: 
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=n_report
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: always
-    networks:
-      - nreportapi-network
+version: '3'
 
-  nreportapi:
-    build: ./
-    depends_on:
-      - db-postgres
+services:
+  app:
+    build: .
     ports:
       - "3000:3000"
-    networks:
-      - nreportapi-network
+    depends_on:
+      - db-postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db-postgres:5432/n_report?schema=public
+    volumes:
+      - .:/nreportapi
+      - /nreportapi/node_modules
 
-networks:
-  nreportapi-network:
-    driver: bridge
+  db-postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=n_report
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   postgres_data:
