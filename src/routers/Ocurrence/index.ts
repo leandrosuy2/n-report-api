@@ -7,16 +7,17 @@ import multer from "multer";
 const ocurrenceRouter = Router();
 const upload = multer(uploadsConfig);
 
-// Rota para ocorrência rápida (apenas localização)
-ocurrenceRouter.post("/quick", authentication, OcurrenceController.createQuickOcurrence);
-
+// Rotas que não precisam de ID
 ocurrenceRouter.post("/save", authentication, OcurrenceController.createOcurrence);
+ocurrenceRouter.post("/quick", authentication, OcurrenceController.createQuickOcurrence);
 ocurrenceRouter.get("/", authentication, OcurrenceController.findAll);
 ocurrenceRouter.get("/self", authentication, OcurrenceController.findAllSelf);
 ocurrenceRouter.get("/count/all", authentication, OcurrenceController.ocurrenceCount);
 ocurrenceRouter.get("/count/self", authentication, OcurrenceController.ocurrenceCountSelf);
 ocurrenceRouter.get("/count/murders", authentication, OcurrenceController.murderCount);
 ocurrenceRouter.get("/count/thefts", authentication, OcurrenceController.theftCount);
+
+// Rotas que precisam de ID
 ocurrenceRouter.get("/:id", authentication, OcurrenceController.findById);
 ocurrenceRouter.put("/:id", authentication, OcurrenceController.update);
 ocurrenceRouter.delete("/:id", authentication, OcurrenceController.remove);

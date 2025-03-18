@@ -11,23 +11,24 @@ import imageRouter from "../routers/Image";
 const app = express();
 
 app.use(express.json());
-app.use(
-    cors({
-        origin: "http://localhost:3000", // ⚠ Defina o domínio permitido
-        credentials: true, // ⚠ Permite envio de cookies e headers de autenticação
-    })
-);
+app.use(cors());  // Permitindo todas as origens temporariamente para teste
 
 const basePathUrlApiV1 = "/api/v1";
 
+// Rota de teste
 app.get(`${basePathUrlApiV1}/hello-world`, (req: Request, res: Response) => res.status(200).send({message: 'Hello World'}));
 
-app.use("/auth", authRouter);
+// Rotas de autenticação
+app.use(`${basePathUrlApiV1}/auth`, authRouter);
+
+// Rotas da API
 app.use(`${basePathUrlApiV1}/users`, userRouter);
 app.use(`${basePathUrlApiV1}/permissions`, permissionRouters);
 app.use(`${basePathUrlApiV1}/ocurrences`, ocurrenceRouter);
-app.use(`${basePathUrlApiV1}/policeStation`, policeStationRouter);
+app.use(`${basePathUrlApiV1}/police-station`, policeStationRouter);
 app.use(`${basePathUrlApiV1}/images`, imageRouter);
-app.use("/images", express.static(path.join(__dirname, "..", "..", "uploads")));
+
+// Rota para servir imagens estáticas
+app.use("/uploads", express.static(path.join(__dirname, "..", "..", "uploads")));
 
 export default app;
