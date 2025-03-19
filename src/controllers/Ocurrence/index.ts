@@ -3,6 +3,7 @@ import Ocurrence from "../../models/Ocurrence";
 import PoliceStation from "../../models/PoliceStation";
 import User from "../../models/User";
 import { createNotification } from "../../utils/notifications";
+import { emitOcurrence } from "../../services/websocket";
 
 interface IOcurrenceCreateDTO {
     title?: string,
@@ -207,12 +208,28 @@ const createOcurrence = async (req: Request, res: Response) => {
             }
         });
 
+        // Emitir evento de nova ocorrência
+        emitOcurrence({
+            id: ocurrenceResponse.id,
+            title: ocurrenceResponse.title || "Sem título",
+            description: ocurrenceResponse.description,
+            type: ocurrenceResponse.type || "Não especificado",
+            latitude: ocurrenceResponse.latitude,
+            longitude: ocurrenceResponse.longitude,
+            date: ocurrenceResponse.date,
+            time: ocurrenceResponse.time,
+            user: ocurrenceResponse.User,
+            policeStation: ocurrenceResponse.PoliceStation
+        });
+
         // Após criar a ocorrência, cria uma notificação
-        createNotification(
-            req.userId,
-            "Nova Ocorrência",
-            `Nova ocorrência registrada em: ${latitude}, ${longitude}`
-        );
+        if (req.userId) {
+            createNotification(
+                req.userId,
+                "Nova Ocorrência",
+                `Nova ocorrência registrada em: ${latitude}, ${longitude}`
+            );
+        }
 
         return res.status(201).json({
             status: "success",
@@ -276,14 +293,7 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
                 date: new Date().toISOString().split('T')[0],
                 time: new Date().toTimeString().split(' ')[0]
             },
-            select: {
-                id: true,
-                latitude: true,
-                longitude: true,
-                type: true,
-                date: true,
-                time: true,
-                resolved: true,
+            include: {
                 User: {
                     select: {
                         id: true,
@@ -293,6 +303,27 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
                 }
             }
         });
+
+        // Emitir evento de nova ocorrência rápida
+        emitOcurrence({
+            id: ocurrenceResponse.id,
+            title: "Ocorrência Rápida",
+            type: "Não especificado",
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            date: new Date().toISOString().split('T')[0],
+            time: new Date().toTimeString().split(' ')[0],
+            user: ocurrenceResponse.User
+        });
+
+        // Criar notificação para ocorrência rápida
+        if (req.userId) {
+            createNotification(
+                req.userId,
+                "Nova Ocorrência Rápida",
+                `Nova ocorrência rápida registrada em: ${latitude}, ${longitude}`
+            );
+        }
 
         return res.status(201).json({
             status: "success",

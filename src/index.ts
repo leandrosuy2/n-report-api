@@ -1,21 +1,21 @@
+// src/index.ts
 import { config } from "dotenv";
 import app from "./app/app";
-import cors from "cors";
+import { createServer } from "http";
+import { initializeWebSocket } from "./services/websocket";
 
-// Carregar as variáveis de ambiente
+// Carregar variáveis de ambiente
 config();
 
-// Configurar CORS para permitir todas as origens
-app.use(
-    cors({
-        origin: "*", // Permite todas as origens
-        credentials: true,
-    })
-);
+// Criar o servidor HTTP
+const server = createServer(app);
 
-const portApplication: string | undefined = process.env.PORT;
+// Inicializar o WebSocket no mesmo servidor HTTP
+initializeWebSocket(server);
 
-// Iniciar o servidor
-app.listen(portApplication, () => {
-    console.log(`Application running on the port ${portApplication}`);
+// Iniciar o servidor HTTP
+const portApplication: string = process.env.PORT || "3000";
+
+server.listen(portApplication, () => {
+    console.log(`🚀 Servidor rodando na porta ${portApplication}`);
 });
