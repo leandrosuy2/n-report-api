@@ -1,15 +1,15 @@
 import { Router } from "express";
 import OcurrenceController from "../../controllers/Ocurrence";
 import { authentication } from "../../middlewares/Authentication";
-import uploadsConfig from "../../config/multer";
+import { uploadsConfig } from "../../config/multer";
 import multer from "multer";
 
 const ocurrenceRouter = Router();
 const upload = multer(uploadsConfig);
 
 // Rotas que não precisam de ID
-ocurrenceRouter.post("/save", authentication, OcurrenceController.createOcurrence);
-ocurrenceRouter.post("/quick", authentication, OcurrenceController.createQuickOcurrence);
+ocurrenceRouter.post("/save", authentication, upload.array('photos', 5), OcurrenceController.createOcurrence);
+ocurrenceRouter.post("/quick", authentication, upload.array('photos', 5), OcurrenceController.createQuickOcurrence);
 ocurrenceRouter.get("/", authentication, OcurrenceController.findAll);
 ocurrenceRouter.get("/self", authentication, OcurrenceController.findAllSelf);
 ocurrenceRouter.get("/count/all", authentication, OcurrenceController.ocurrenceCount);
@@ -19,7 +19,10 @@ ocurrenceRouter.get("/count/thefts", authentication, OcurrenceController.theftCo
 
 // Rotas que precisam de ID
 ocurrenceRouter.get("/:id", authentication, OcurrenceController.findById);
-ocurrenceRouter.put("/:id", authentication, OcurrenceController.update);
+ocurrenceRouter.put("/:id", authentication, upload.array('photos', 5), OcurrenceController.update);
 ocurrenceRouter.delete("/:id", authentication, OcurrenceController.remove);
+
+// Nova rota para adicionar fotos a uma ocorrência existente
+ocurrenceRouter.post("/:id/photos", authentication, upload.array('photos', 5), OcurrenceController.addPhotos);
 
 export default ocurrenceRouter;

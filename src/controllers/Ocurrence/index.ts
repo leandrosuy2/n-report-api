@@ -1,9 +1,14 @@
 import { Request, Response } from "express";
+import { prisma } from "../../lib/prisma";
+import fs from "fs";
+import path from "path";
+import logger from "../../utils/logger";
 import Ocurrence from "../../models/Ocurrence";
 import PoliceStation from "../../models/PoliceStation";
 import User from "../../models/User";
 import { createNotification } from "../../utils/notifications";
 import { emitOcurrence } from "../../services/websocket";
+import { Prisma } from "@prisma/client";
 
 interface IOcurrenceCreateDTO {
     title?: string,
@@ -14,6 +19,7 @@ interface IOcurrenceCreateDTO {
     date?: string,
     time?: string,
     policeStation_id?: string,
+    photos?: string[]
 }
 
 interface ErrorResponse {
@@ -64,189 +70,93 @@ const validateCoordinates = (latitude: number, longitude: number): string | null
     return null;
 };
 
+// Extend Request type to include user and files
+declare module "express" {
+  interface Request {
+    user?: {
+      id: string;
+    };
+    files?: Express.Multer.File[];
+  }
+}
+
 const createOcurrence = async (req: Request, res: Response) => {
     try {
-        const { latitude, longitude, title, description, type, date, time, policeStation_id } = req.body;
+        const { latitude, longitude, title, description, type, date, time, police_station_id } = req.body;
+        const user_id = req.userId;
 
-        // Validar campos obrigatórios
-        if (!latitude || !longitude) {
-            return res.status(400).json({
-                status: "error",
-                message: "Latitude e longitude são obrigatórios",
-                code: "MISSING_COORDINATES"
-            });
+        if (!user_id) {
+            // Remove uploaded files if they exist
+            if (req.files && Array.isArray(req.files)) {
+                req.files.forEach(file => {
+                    if (file.filename) {
+                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    }
+                });
+            }
+            return res.status(401).json({ error: "User not authenticated" });
         }
 
-        // Validar coordenadas
-        const coordError = validateCoordinates(Number(latitude), Number(longitude));
-        if (coordError) {
-            return res.status(400).json({
-                status: "error",
-                message: coordError,
-                code: "INVALID_COORDINATES"
-            });
+        // Validate required fields
+        if (!latitude || !longitude || !title || !description || !type || !date || !time) {
+            // Remove uploaded files if they exist
+            if (req.files && Array.isArray(req.files)) {
+                req.files.forEach(file => {
+                    if (file.filename) {
+                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    }
+                });
+            }
+            return res.status(400).json({ error: "Missing required fields" });
         }
 
-        const ocurrenceData: any = {
+        // Get photo filenames if files were uploaded
+        const photos = req.files && Array.isArray(req.files) 
+            ? req.files.map(file => file.filename)
+            : [];
+
+        const ocurrenceData: Prisma.OcurrenceCreateInput = {
             latitude: Number(latitude),
             longitude: Number(longitude),
-            user_id: req.userId,
+            title,
+            description,
+            type,
+            date,
+            time,
+            photos,
+            User: {
+                connect: { id: user_id }
+            },
+            PoliceStation: police_station_id ? {
+                connect: { id: police_station_id }
+            } : undefined
         };
 
-        // Validar e adicionar campos opcionais
-        if (title) {
-            if (typeof title !== 'string' || title.length > 255) {
-                return res.status(400).json({
-                    status: "error",
-                    message: "Título inválido: deve ser uma string com no máximo 255 caracteres",
-                    code: "INVALID_TITLE"
-                });
-            }
-            ocurrenceData.title = title;
-        }
-
-        if (description) {
-            if (typeof description !== 'string') {
-                return res.status(400).json({
-                    status: "error",
-                    message: "Descrição inválida: deve ser uma string",
-                    code: "INVALID_DESCRIPTION"
-                });
-            }
-            ocurrenceData.description = description;
-        }
-
-        if (type) {
-            if (typeof type !== 'string' || !['ROUBO', 'FURTO', 'HOMICIDIO', 'OUTROS'].includes(type.toUpperCase())) {
-                return res.status(400).json({
-                    status: "error",
-                    message: "Tipo inválido: deve ser ROUBO, FURTO, HOMICIDIO ou OUTROS",
-                    code: "INVALID_TYPE"
-                });
-            }
-            ocurrenceData.type = type.toUpperCase();
-        }
-
-        if (date) {
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateRegex.test(date)) {
-                return res.status(400).json({
-                    status: "error",
-                    message: "Data inválida: use o formato YYYY-MM-DD",
-                    code: "INVALID_DATE"
-                });
-            }
-            ocurrenceData.date = date;
-        }
-
-        if (time) {
-            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
-            if (!timeRegex.test(time)) {
-                return res.status(400).json({
-                    status: "error",
-                    message: "Hora inválida: use o formato HH:MM:SS",
-                    code: "INVALID_TIME"
-                });
-            }
-            ocurrenceData.time = time;
-        }
-
-        // Verificar usuário
-        const userExist = await User.findUnique({
-            where: { id: req.userId }
-        });
-
-        if (!userExist) {
-            return res.status(404).json({
-                status: "error",
-                message: "Usuário não encontrado",
-                code: "USER_NOT_FOUND"
-            });
-        }
-
-        // Verificar delegacia se fornecida
-        if (policeStation_id) {
-            const policeStation = await PoliceStation.findUnique({
-                where: { id: policeStation_id }
-            });
-
-            if (!policeStation) {
-                return res.status(404).json({
-                    status: "error",
-                    message: "Delegacia não encontrada",
-                    code: "POLICE_STATION_NOT_FOUND"
-                });
-            }
-            ocurrenceData.policeStation_id = policeStation_id;
-        }
-
-        const ocurrenceResponse = await Ocurrence.create({
+        const ocurrence = await prisma.ocurrence.create({
             data: ocurrenceData,
-            select: {
-                id: true,
-                title: true,
-                description: true,
-                type: true,
-                latitude: true,
-                longitude: true,
-                date: true,
-                time: true,
-                resolved: true,
-                User: {
-                    select: {
-                        id: true,
-                        name: true,
-                        avatar: true,
-                    }
-                },
-                PoliceStation: {
-                    select: {
-                        name: true,
-                        phone: true,
-                    }
-                }
+            include: {
+                User: true,
+                PoliceStation: true
             }
         });
 
-        // Emitir evento de nova ocorrência
-        emitOcurrence({
-            id: ocurrenceResponse.id,
-            title: ocurrenceResponse.title || "Sem título",
-            description: ocurrenceResponse.description,
-            type: ocurrenceResponse.type || "Não especificado",
-            latitude: ocurrenceResponse.latitude,
-            longitude: ocurrenceResponse.longitude,
-            date: ocurrenceResponse.date,
-            time: ocurrenceResponse.time,
-            user: ocurrenceResponse.User,
-            policeStation: ocurrenceResponse.PoliceStation
-        });
-
-        // Após criar a ocorrência, cria uma notificação
-        if (req.userId) {
-            createNotification(
-                req.userId,
-                "Nova Ocorrência",
-                `Nova ocorrência registrada em: ${latitude}, ${longitude}`
-            );
-        }
-
-        return res.status(201).json({
-            status: "success",
-            message: "Ocorrência criada com sucesso",
-            data: ocurrenceResponse
-        });
+        logger.info(`Occurrence created successfully with ID: ${ocurrence.id}`);
+        return res.status(201).json(ocurrence);
 
     } catch (error) {
-        console.error("Erro detalhado:", error);
-        const errorResponse = handleError(error);
-        return res.status(errorResponse.status).json({
-            status: "error",
-            message: errorResponse.message,
-            details: errorResponse.details
-        });
+        // Remove uploaded files if they exist
+        if (req.files && Array.isArray(req.files)) {
+            req.files.forEach(file => {
+                if (file.filename) {
+                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                }
+            });
+        }
+
+        logger.error('Error creating occurrence:', error);
+        return res.status(500).json({ error: "Error creating occurrence" });
     }
-}
+};
 
 const createQuickOcurrence = async (req: Request, res: Response) => {
     try {
@@ -837,6 +747,92 @@ const remove = async (req: Request, res: Response) => {
     }
 }
 
+const addPhotos = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user_id = req.userId;
+
+        if (!user_id) {
+            // Remove uploaded files if they exist
+            if (req.files && Array.isArray(req.files)) {
+                req.files.forEach(file => {
+                    if (file.filename) {
+                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    }
+                });
+            }
+            return res.status(401).json({ error: "User not authenticated" });
+        }
+
+        // Check if files were uploaded
+        if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+            return res.status(400).json({ error: "No photos provided" });
+        }
+
+        // Get the occurrence
+        const occurrence = await prisma.ocurrence.findUnique({
+            where: { id },
+            include: {
+                User: true,
+                PoliceStation: true
+            }
+        });
+
+        if (!occurrence) {
+            // Remove uploaded files
+            req.files.forEach(file => {
+                if (file.filename) {
+                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                }
+            });
+            return res.status(404).json({ error: "Occurrence not found" });
+        }
+
+        // Check if user owns the occurrence
+        if (occurrence.user_id !== user_id) {
+            // Remove uploaded files
+            req.files.forEach(file => {
+                if (file.filename) {
+                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                }
+            });
+            return res.status(403).json({ error: "Not authorized to modify this occurrence" });
+        }
+
+        // Get existing photos and new photo filenames
+        const existingPhotos = occurrence.photos || [];
+        const newPhotos = req.files.map(file => file.filename);
+
+        // Update occurrence with combined photos
+        const updatedOccurrence = await prisma.ocurrence.update({
+            where: { id },
+            data: {
+                photos: [...existingPhotos, ...newPhotos]
+            },
+            include: {
+                User: true,
+                PoliceStation: true
+            }
+        });
+
+        logger.info(`Photos added to occurrence ID: ${id}`);
+        return res.status(200).json(updatedOccurrence);
+
+    } catch (error) {
+        // Remove uploaded files if they exist
+        if (req.files && Array.isArray(req.files)) {
+            req.files.forEach(file => {
+                if (file.filename) {
+                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                }
+            });
+        }
+
+        logger.error('Error adding photos to occurrence:', error);
+        return res.status(500).json({ error: "Error adding photos to occurrence" });
+    }
+}
+
 export default {
     createOcurrence,
     createQuickOcurrence,
@@ -849,4 +845,5 @@ export default {
     findById,
     update,
     remove,
+    addPhotos
 };

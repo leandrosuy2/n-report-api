@@ -12,6 +12,7 @@ services:
     volumes:
       - .:/nreportapi
       - /nreportapi/node_modules
+      - uploads_data:/nreportapi/uploads
 
   db-postgres:
     image: postgres:15
@@ -26,3 +27,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

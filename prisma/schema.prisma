@@ -43,6 +43,7 @@ model Ocurrence {
   date        String?
   time        String?
   resolved    Boolean  @default(false)
+  photos      String[] @default([])
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
