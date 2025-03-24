@@ -1,6 +1,7 @@
 import { Router } from "express";
 import OcurrenceController from "../../controllers/Ocurrence";
 import { authentication } from "../../middlewares/Authentication";
+import Authorization from "../../middlewares/Authorization";
 import { uploadsConfig } from "../../config/multer";
 import multer from "multer";
 
@@ -10,11 +11,11 @@ const upload = multer(uploadsConfig);
 // Rotas que não precisam de ID
 ocurrenceRouter.post("/save", authentication, upload.array('photos', 5), OcurrenceController.createOcurrence);
 ocurrenceRouter.post("/quick", authentication, upload.array('photos', 5), OcurrenceController.createQuickOcurrence);
-ocurrenceRouter.get("/", authentication, OcurrenceController.findAll);
+ocurrenceRouter.get("/", authentication, Authorization.authorizationAdmin, OcurrenceController.findAll);
 ocurrenceRouter.get("/self", authentication, OcurrenceController.findAllSelf);
 ocurrenceRouter.get("/count/all", authentication, OcurrenceController.ocurrenceCount);
 ocurrenceRouter.get("/count/self", authentication, OcurrenceController.ocurrenceCountSelf);
-ocurrenceRouter.get("/count/murders", authentication, OcurrenceController.murderCount);
+ocurrenceRouter.get("/count/domestic-violence", authentication, OcurrenceController.murderCount);
 ocurrenceRouter.get("/count/thefts", authentication, OcurrenceController.theftCount);
 
 // Rotas que precisam de ID

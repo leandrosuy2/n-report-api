@@ -135,10 +135,35 @@ const createOcurrence = async (req: Request, res: Response) => {
         const ocurrence = await prisma.ocurrence.create({
             data: ocurrenceData,
             include: {
-                User: true,
+                User: {
+                    select: {
+                        id: true,
+                        name: true,
+                        avatar: true,
+                    }
+                },
                 PoliceStation: true
             }
         });
+
+        // Emitir evento de nova ocorrência
+        emitOcurrence({
+            id: ocurrence.id,
+            title: ocurrence.title || "Nova Ocorrência",
+            type: ocurrence.type || "Não especificado",
+            latitude: ocurrence.latitude,
+            longitude: ocurrence.longitude,
+            date: ocurrence.date || new Date().toISOString().split('T')[0],
+            time: ocurrence.time || new Date().toTimeString().split(' ')[0],
+            user: ocurrence.User
+        });
+
+        // Criar notificação para nova ocorrência
+        createNotification(
+            user_id,
+            "Nova Ocorrência",
+            `Nova ocorrência registrada: ${title}`
+        );
 
         logger.info(`Occurrence created successfully with ID: ${ocurrence.id}`);
         return res.status(201).json(ocurrence);
@@ -160,7 +185,7 @@ const createOcurrence = async (req: Request, res: Response) => {
 
 const createQuickOcurrence = async (req: Request, res: Response) => {
     try {
-        const { latitude, longitude } = req.body;
+        const { latitude, longitude, type } = req.body;
 
         // Validar campos obrigatórios
         if (!latitude || !longitude) {
@@ -181,6 +206,36 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
             });
         }
 
+        // Validar tipo se fornecido
+        let occurrenceType = "Não especificado";
+        if (type) {
+            const validTypes = [
+                'AGRESSOES_OU_BRIGAS',
+                'APOIO_EM_ACIDENTES_DE_TRANSITO',
+                'DEPREDACAO_DO_PATRIMONIO_PUBLICO',
+                'EMERGENCIAS_AMBIENTAIS',
+                'INVASAO_DE_PREDIOS_OU_TERRENOS_PUBLICOS',
+                'MARIA_DA_PENHA',
+                'PERTURBACAO_DO_SOSSEGO_PUBLICO',
+                'POSSE_DE_ARMAS_BRANCAS_OU_DE_FOGO',
+                'PESSOA_SUSPEITA',
+                'ROUBOS_E_FURTOS',
+                'TENTATIVA_DE_SUICIDIO',
+                'USO_E_TRAFICO_DE_DROGAS',
+                'VIOLENCIA_DOMESTICA',
+                'OUTROS'
+            ];
+
+            if (typeof type !== 'string' || !validTypes.includes(type.toUpperCase())) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Tipo inválido. Tipos permitidos: " + validTypes.join(', '),
+                    code: "INVALID_TYPE"
+                });
+            }
+            occurrenceType = type.toUpperCase();
+        }
+
         // Verificar usuário
         const userExist = await User.findUnique({
             where: { id: req.userId }
@@ -199,7 +254,7 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
                 latitude: Number(latitude),
                 longitude: Number(longitude),
                 user_id: req.userId,
-                type: "Não especificado",
+                type: occurrenceType,
                 date: new Date().toISOString().split('T')[0],
                 time: new Date().toTimeString().split(' ')[0]
             },
@@ -218,7 +273,7 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
         emitOcurrence({
             id: ocurrenceResponse.id,
             title: "Ocorrência Rápida",
-            type: "Não especificado",
+            type: occurrenceType,
             latitude: Number(latitude),
             longitude: Number(longitude),
             date: new Date().toISOString().split('T')[0],
@@ -265,6 +320,7 @@ const findAll = async (req: Request, res: Response) => {
                 date: true,
                 time: true,
                 resolved: true,
+                photos: true,
                 User: {
                     select: {
                         id: true,
@@ -315,6 +371,7 @@ const findAllSelf = async (req: Request, res: Response) => {
                 date: true,
                 time: true,
                 resolved: true,
+                photos: true,
                 User: {
                     select: {
                         id: true,
@@ -399,13 +456,13 @@ const murderCount = async (req: Request, res: Response) => {
     try {
         const count = await Ocurrence.count({
             where: {
-                type: 'HOMICIDIO'
+                type: 'VIOLENCIA_DOMESTICA'
             }
         });
 
         return res.status(200).json({
             status: "success",
-            message: "Contagem de homicídios realizada com sucesso",
+            message: "Contagem de violência doméstica realizada com sucesso",
             data: { count }
         });
 
@@ -424,13 +481,13 @@ const theftCount = async (req: Request, res: Response) => {
     try {
         const count = await Ocurrence.count({
             where: {
-                type: 'FURTO'
+                type: 'ROUBOS_E_FURTOS'
             }
         });
 
         return res.status(200).json({
             status: "success",
-            message: "Contagem de furtos realizada com sucesso",
+            message: "Contagem de roubos e furtos realizada com sucesso",
             data: { count }
         });
 
@@ -469,6 +526,7 @@ const findById = async (req: Request, res: Response) => {
                 date: true,
                 time: true,
                 resolved: true,
+                photos: true,
                 User: {
                     select: {
                         id: true,
@@ -584,10 +642,27 @@ const update = async (req: Request, res: Response) => {
         }
 
         if (type !== undefined) {
-            if (typeof type !== 'string' || !['ROUBO', 'FURTO', 'HOMICIDIO', 'OUTROS'].includes(type.toUpperCase())) {
+            const validTypes = [
+                'AGRESSOES_OU_BRIGAS',
+                'APOIO_EM_ACIDENTES_DE_TRANSITO',
+                'DEPREDACAO_DO_PATRIMONIO_PUBLICO',
+                'EMERGENCIAS_AMBIENTAIS',
+                'INVASAO_DE_PREDIOS_OU_TERRENOS_PUBLICOS',
+                'MARIA_DA_PENHA',
+                'PERTURBACAO_DO_SOSSEGO_PUBLICO',
+                'POSSE_DE_ARMAS_BRANCAS_OU_DE_FOGO',
+                'PESSOA_SUSPEITA',
+                'ROUBOS_E_FURTOS',
+                'TENTATIVA_DE_SUICIDIO',
+                'USO_E_TRAFICO_DE_DROGAS',
+                'VIOLENCIA_DOMESTICA',
+                'OUTROS'
+            ];
+
+            if (typeof type !== 'string' || !validTypes.includes(type.toUpperCase())) {
                 return res.status(400).json({
                     status: "error",
-                    message: "Tipo inválido: deve ser ROUBO, FURTO, HOMICIDIO ou OUTROS",
+                    message: "Tipo inválido. Tipos permitidos: " + validTypes.join(', '),
                     code: "INVALID_TYPE"
                 });
             }
@@ -651,6 +726,7 @@ const update = async (req: Request, res: Response) => {
                 date: true,
                 time: true,
                 resolved: true,
+                photos: true,
                 User: {
                     select: {
                         id: true,

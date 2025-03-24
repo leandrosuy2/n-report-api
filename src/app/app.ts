@@ -1,5 +1,4 @@
-// src/app.ts
-import express, { Request, Response } from "express";
+import express from "express";
 import cors from "cors";
 import path from "path";
 
@@ -11,7 +10,6 @@ import policeStationRouter from "../routers/PoliceStation";
 import imageRouter from "../routers/Image";
 
 const app = express();
-
 const basePathUrlApiV1 = "/api/v1";
 
 // Middlewares
@@ -36,6 +34,6 @@ app.use(`${basePathUrlApiV1}/permissions`, permissionRouters);
 app.use(`${basePathUrlApiV1}/ocurrences`, ocurrenceRouter);
 app.use(`${basePathUrlApiV1}/policeStation`, policeStationRouter);
 app.use(`${basePathUrlApiV1}/images`, imageRouter);
-app.use("/images", express.static(path.join(__dirname, "..", "..", "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "..", "..", "uploads")));
 
 export default app;

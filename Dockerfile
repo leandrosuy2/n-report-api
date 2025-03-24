@@ -19,4 +19,6 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["./scripts/init.sh"]
+# CMD ["./scripts/init.sh"]
+# CMD ["/bin/bash", "/nreportapi/scripts/init.sh"]
+CMD ["/bin/bash", "./scripts/init.sh"]

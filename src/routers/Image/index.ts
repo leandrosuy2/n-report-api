@@ -25,4 +25,7 @@ imageRouter.put('/:id', upload.single('image'), ImageController.update);
 // Deletar imagem
 imageRouter.delete('/:id', ImageController.remove);
 
+// Rota pública para buscar imagens
+imageRouter.get("/:filename", ImageController.getImage);
+
 export default imageRouter;
