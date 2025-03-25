@@ -30,7 +30,7 @@ export const initializeWebSocket = (server: HttpServer) => {
         console.log('🔌 Nova conexão WebSocket estabelecida');
         
         // Extrair parâmetros da URL
-        const url = new URL(req.url || '', 'ws://localhost');
+        const url = new URL(req.url || '', 'ws://l2m');
         const chatId = url.searchParams.get('chatId');
         const userId = url.searchParams.get('userId');
         const token = url.searchParams.get('token');
