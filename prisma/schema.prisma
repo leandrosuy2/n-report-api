@@ -22,6 +22,7 @@ model User {
   permission_id String
   Ocurrences    Ocurrence[]
   images        Image[]
+  messages      ChatMessage[]
 }
 
 model Permission {
@@ -51,6 +52,7 @@ model Ocurrence {
   user_id          String
   PoliceStation    PoliceStation? @relation(fields: [policeStation_id], references: [id], onDelete: Cascade)
   policeStation_id String?
+  chat             Chat?
 
   @@map("ocurrences")
 }
@@ -78,4 +80,28 @@ model PoliceStation {
   updated_at DateTime @updatedAt
 
   Ocurrences Ocurrence[]
+}
+
+model Chat {
+  id          String        @id @default(uuid())
+  ocurrence   Ocurrence     @relation(fields: [ocurrence_id], references: [id], onDelete: Cascade)
+  ocurrence_id String       @unique
+  messages    ChatMessage[]
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+
+  @@map("chats")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  content   String
+  image_url String?
+  chat      Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade)
+  chat_id   String
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id   String
+  created_at DateTime @default(now())
+
+  @@map("chat_messages")
 }

@@ -17,8 +17,10 @@ RUN mkdir -p uploads && chown -R node:node uploads && chmod 755 uploads
 
 COPY . .
 
+# Converter line endings para Unix
+RUN apt-get update && apt-get install -y dos2unix
+RUN dos2unix ./scripts/init.sh
+
 EXPOSE 3000
 
-# CMD ["./scripts/init.sh"]
-# CMD ["/bin/bash", "/nreportapi/scripts/init.sh"]
 CMD ["/bin/bash", "./scripts/init.sh"]

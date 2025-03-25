@@ -26,4 +26,4 @@ npx prisma db seed
 
 # Inicia a aplicação
 echo "🚀 Iniciando a aplicação..."
-npm start 
+npm start

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import path from "path";
 
@@ -8,6 +8,7 @@ import permissionRouters from "../routers/Permission";
 import ocurrenceRouter from "../routers/Ocurrence";
 import policeStationRouter from "../routers/PoliceStation";
 import imageRouter from "../routers/Image";
+import chatRouter from "../routes/chat.routes";
 
 const app = express();
 const basePathUrlApiV1 = "/api/v1";
@@ -25,7 +26,7 @@ app.use(
 
 // Rotas
 app.get(`${basePathUrlApiV1}/hello-world`, (req: Request, res: Response) =>
-    res.status(200).send({ message: "Hello World" })
+    res.status(200).json({ message: "Hello World" })
 );
 
 app.use("/auth", authRouter);
@@ -34,6 +35,7 @@ app.use(`${basePathUrlApiV1}/permissions`, permissionRouters);
 app.use(`${basePathUrlApiV1}/ocurrences`, ocurrenceRouter);
 app.use(`${basePathUrlApiV1}/policeStation`, policeStationRouter);
 app.use(`${basePathUrlApiV1}/images`, imageRouter);
+app.use(`${basePathUrlApiV1}`, chatRouter);
 app.use("/uploads", express.static(path.join(__dirname, "..", "..", "uploads")));
 
 export default app;
