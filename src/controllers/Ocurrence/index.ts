@@ -7,7 +7,7 @@ import Ocurrence from "../../models/Ocurrence";
 import PoliceStation from "../../models/PoliceStation";
 import User from "../../models/User";
 import { createNotification } from "../../utils/notifications";
-import { emitOcurrence } from "../../services/websocket";
+import { emitOcurrence } from "../../services/socket";
 import { Prisma } from "@prisma/client";
 
 interface IOcurrenceCreateDTO {

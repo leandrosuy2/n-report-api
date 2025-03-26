@@ -2,7 +2,7 @@
 import { config } from "dotenv";
 import app from "./app/app";
 import { createServer } from "http";
-import { initializeWebSocket } from "./services/websocket";
+import { initializeSocket } from "./services/socket";
 
 // Carregar variáveis de ambiente
 config();
@@ -10,8 +10,8 @@ config();
 // Criar o servidor HTTP
 const server = createServer(app);
 
-// Inicializar o WebSocket no mesmo servidor HTTP
-initializeWebSocket(server);
+// Inicializar o Socket.IO
+initializeSocket(server);
 
 // Iniciar o servidor HTTP
 const portApplication: string = process.env.PORT || "3000";
