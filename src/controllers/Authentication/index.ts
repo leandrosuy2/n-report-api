@@ -91,10 +91,32 @@ const signup = async (req: Request, res: Response) => {
         }
 
         const user = await User.create({
-            data: userToCreate
+            data: userToCreate,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                cpf: true,
+                avatar: true,
+                created_at: true,
+                updated_at: true,
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
         });
 
-        return res.status(201).json(user);
+        // Constrói a URL do avatar
+        const avatarUrl = user.avatar
+            ? `${req.protocol}://${req.get('host')}/uploads/${user.avatar}`
+            : null;
+
+        return res.status(201).json({
+            ...user,
+            avatar: avatarUrl
+        });
     } catch (error) {
         console.error('Erro ao criar usuário:', error);
         return res.status(500).json({ message: "Internal server error" });

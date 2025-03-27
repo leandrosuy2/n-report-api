@@ -47,4 +47,4 @@ const uploadsConfig = {
     }
 };
 
-export { uploadsConfig };
+export default uploadsConfig;

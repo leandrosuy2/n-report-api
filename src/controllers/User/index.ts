@@ -3,6 +3,8 @@ import { createHashPassword, compareHashWithTextPassword } from "../../utils/bcr
 import User from "../../models/User";
 import Permission from "../../models/Permission";
 import logger from "../../utils/logger";
+import path from "path";
+import fs from "fs";
 
 interface IUserCreateDTO {
     name: string,
@@ -126,7 +128,7 @@ const findById = async (req: Request, res: Response) => {
 
         if (user) {
             const avatarUrl = user.avatar
-                ? `${req.protocol}://${req.get('host')}/images/${user.avatar}`
+                ? `${req.protocol}://${req.get('host')}/uploads/${user.avatar}`
                 : null;
 
             logger.info(`User found: ${id}`);
@@ -181,7 +183,7 @@ const profile = async (req: Request, res: Response) => {
 
         if (user) {
             const avatarUrl = user.avatar
-                ? `${req.protocol}://${req.get('host')}/images/${user.avatar}`
+                ? `${req.protocol}://${req.get('host')}/uploads/${user.avatar}`
                 : null;
 
             logger.info(`Profile retrieved for user: ${id}`);
@@ -232,7 +234,7 @@ const update = async (req: Request, res: Response) => {
 
         if (user) {
             const avatarUrl = user.avatar
-                ? `${req.protocol}://${req.get('host')}/images/${user.avatar}`
+                ? `${req.protocol}://${req.get('host')}/uploads/${user.avatar}`
                 : null;
 
             logger.info(`User updated successfully: ${id}`);
@@ -275,11 +277,19 @@ const updateUser = async (userId: string, userToCreate: IUserCreateDTO, avatar: 
             throw new Error('Error processing password');
         }
 
+        // Remove old avatar if exists and new avatar is provided
+        if (avatar && existingUser.avatar && existingUser.avatar !== 'default.png') {
+            const oldAvatarPath = path.join(__dirname, '../../../uploads', existingUser.avatar);
+            if (fs.existsSync(oldAvatarPath)) {
+                fs.unlinkSync(oldAvatarPath);
+            }
+        }
+
         return await User.update({
             where: { id: userId },
             data: {
                 ...userToCreate,
-                avatar: avatar
+                avatar: avatar || existingUser.avatar
             },
             select: {
                 id: true,
@@ -339,7 +349,7 @@ const updateSelf = async (req: Request, res: Response) => {
 
             if (user) {
                 const avatarUrl = user.avatar
-                    ? `${req.protocol}://${req.get('host')}/images/${user.avatar}`
+                    ? `${req.protocol}://${req.get('host')}/uploads/${user.avatar}`
                     : null;
 
                 logger.info(`User self-updated successfully: ${id}`);
