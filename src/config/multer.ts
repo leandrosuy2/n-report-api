@@ -5,25 +5,32 @@ import fs from "fs";
 
 // Criar diretório de uploads se não existir
 const uploadDir = path.resolve(__dirname, "..", "..", "uploads");
+console.log('Upload directory:', uploadDir);
+
 if (!fs.existsSync(uploadDir)) {
+    console.log('Creating upload directory...');
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Configuração do armazenamento
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
+        console.log('Multer destination called for file:', file.originalname);
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         // Gera um nome único para o arquivo
         const hash = crypto.randomBytes(16).toString("hex");
         const fileName = `${hash}-${file.originalname}`;
+        console.log('Generated filename:', fileName);
         cb(null, fileName);
     }
 });
 
 // Configuração dos tipos de arquivos permitidos
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    console.log('File filter called for file:', file.originalname, 'mimetype:', file.mimetype);
+    
     const allowedMimes = [
         "image/jpeg",
         "image/pjpeg",
@@ -32,8 +39,10 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
     ];
 
     if (allowedMimes.includes(file.mimetype)) {
+        console.log('File type allowed');
         cb(null, true);
     } else {
+        console.log('File type not allowed');
         cb(new Error("Invalid file type."));
     }
 };

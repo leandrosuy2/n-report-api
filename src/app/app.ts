@@ -36,6 +36,10 @@ app.use(`${basePathUrlApiV1}/ocurrences`, ocurrenceRouter);
 app.use(`${basePathUrlApiV1}/policeStation`, policeStationRouter);
 app.use(`${basePathUrlApiV1}/images`, imageRouter);
 app.use(`${basePathUrlApiV1}`, chatRouter);
-app.use("/uploads", express.static(path.join(__dirname, "..", "..", "uploads")));
+
+const uploadsPath = path.join(__dirname, "..", "..", "uploads");
+console.log('Serving uploads from:', uploadsPath);
+
+app.use("/uploads", express.static(uploadsPath));
 
 export default app;

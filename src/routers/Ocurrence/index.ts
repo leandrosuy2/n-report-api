@@ -2,11 +2,11 @@ import { Router } from "express";
 import OcurrenceController from "../../controllers/Ocurrence";
 import { authentication } from "../../middlewares/Authentication";
 import Authorization from "../../middlewares/Authorization";
-import { uploadsConfig } from "../../config/multer";
+import multerConfig from "../../config/multer";
 import multer from "multer";
 
 const ocurrenceRouter = Router();
-const upload = multer(uploadsConfig);
+const upload = multer(multerConfig);
 
 // Rotas que não precisam de ID
 ocurrenceRouter.post("/save", authentication, upload.array('photos', 5), OcurrenceController.createOcurrence);

@@ -82,10 +82,17 @@ declare module "express" {
 
 const createOcurrence = async (req: Request, res: Response) => {
     try {
+        console.log('Request received:', {
+            body: req.body,
+            files: req.files,
+            headers: req.headers
+        });
+
         const { latitude, longitude, title, description, type, date, time, police_station_id } = req.body;
         const user_id = req.userId;
 
         if (!user_id) {
+            console.log('User not authenticated');
             // Remove uploaded files if they exist
             if (req.files && Array.isArray(req.files)) {
                 req.files.forEach(file => {
@@ -99,6 +106,7 @@ const createOcurrence = async (req: Request, res: Response) => {
 
         // Validate required fields
         if (!latitude || !longitude || !title || !description || !type || !date || !time) {
+            console.log('Missing required fields:', { latitude, longitude, title, description, type, date, time });
             // Remove uploaded files if they exist
             if (req.files && Array.isArray(req.files)) {
                 req.files.forEach(file => {
@@ -111,9 +119,19 @@ const createOcurrence = async (req: Request, res: Response) => {
         }
 
         // Get photo filenames if files were uploaded
+        console.log('Processing files:', req.files);
         const photos = req.files && Array.isArray(req.files) 
-            ? req.files.map(file => file.filename)
+            ? req.files.map(file => {
+                console.log('Processing file:', file);
+                if (!file.filename) {
+                    console.log('File has no filename:', file);
+                    return null;
+                }
+                return file.filename;
+            }).filter((filename): filename is string => filename !== null)
             : [];
+        
+        console.log('Final photos array:', photos);
 
         const ocurrenceData: Prisma.OcurrenceCreateInput = {
             latitude: Number(latitude),
@@ -131,6 +149,8 @@ const createOcurrence = async (req: Request, res: Response) => {
                 connect: { id: police_station_id }
             } : undefined
         };
+
+        console.log('Creating occurrence with data:', ocurrenceData);
 
         const ocurrence = await prisma.ocurrence.create({
             data: ocurrenceData,
@@ -185,79 +205,58 @@ const createOcurrence = async (req: Request, res: Response) => {
 
 const createQuickOcurrence = async (req: Request, res: Response) => {
     try {
-        const { latitude, longitude, type } = req.body;
+        const { latitude, longitude, type, police_station_id, date, time } = req.body;
+        const user_id = req.userId;
 
-        // Validar campos obrigatórios
-        if (!latitude || !longitude) {
-            return res.status(400).json({
-                status: "error",
-                message: "Latitude e longitude são obrigatórios",
-                code: "MISSING_COORDINATES"
-            });
-        }
-
-        // Validar coordenadas
-        const coordError = validateCoordinates(Number(latitude), Number(longitude));
-        if (coordError) {
-            return res.status(400).json({
-                status: "error",
-                message: coordError,
-                code: "INVALID_COORDINATES"
-            });
-        }
-
-        // Validar tipo se fornecido
-        let occurrenceType = "Não especificado";
-        if (type) {
-            const validTypes = [
-                'AGRESSOES_OU_BRIGAS',
-                'APOIO_EM_ACIDENTES_DE_TRANSITO',
-                'DEPREDACAO_DO_PATRIMONIO_PUBLICO',
-                'EMERGENCIAS_AMBIENTAIS',
-                'INVASAO_DE_PREDIOS_OU_TERRENOS_PUBLICOS',
-                'MARIA_DA_PENHA',
-                'PERTURBACAO_DO_SOSSEGO_PUBLICO',
-                'POSSE_DE_ARMAS_BRANCAS_OU_DE_FOGO',
-                'PESSOA_SUSPEITA',
-                'ROUBOS_E_FURTOS',
-                'TENTATIVA_DE_SUICIDIO',
-                'USO_E_TRAFICO_DE_DROGAS',
-                'VIOLENCIA_DOMESTICA',
-                'OUTROS'
-            ];
-
-            if (typeof type !== 'string' || !validTypes.includes(type.toUpperCase())) {
-                return res.status(400).json({
-                    status: "error",
-                    message: "Tipo inválido. Tipos permitidos: " + validTypes.join(', '),
-                    code: "INVALID_TYPE"
+        if (!user_id) {
+            // Remove uploaded files if they exist
+            if (req.files && Array.isArray(req.files)) {
+                req.files.forEach(file => {
+                    if (file.filename) {
+                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    }
                 });
             }
-            occurrenceType = type.toUpperCase();
+            return res.status(401).json({ error: "User not authenticated" });
         }
 
-        // Verificar usuário
-        const userExist = await User.findUnique({
-            where: { id: req.userId }
-        });
-
-        if (!userExist) {
-            return res.status(404).json({
-                status: "error",
-                message: "Usuário não encontrado",
-                code: "USER_NOT_FOUND"
-            });
+        // Validate required fields
+        if (!latitude || !longitude || !type || !date || !time) {
+            // Remove uploaded files if they exist
+            if (req.files && Array.isArray(req.files)) {
+                req.files.forEach(file => {
+                    if (file.filename) {
+                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    }
+                });
+            }
+            return res.status(400).json({ error: "Missing required fields" });
         }
 
-        const ocurrenceResponse = await Ocurrence.create({
-            data: {
-                latitude: Number(latitude),
-                longitude: Number(longitude),
-                user_id: req.userId,
-                type: occurrenceType,
-                date: new Date().toISOString().split('T')[0],
-                time: new Date().toTimeString().split(' ')[0]
+        // Get photo filenames if files were uploaded
+        const photos = req.files && Array.isArray(req.files) 
+            ? req.files.map(file => file.filename).filter(filename => filename !== undefined)
+            : [];
+
+        const ocurrenceData: Prisma.OcurrenceCreateInput = {
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            title: "Ocorrência Rápida",
+            description: "Ocorrência registrada via botão de emergência",
+            type,
+            date,
+            time,
+            photos,
+            User: {
+                connect: { id: user_id }
             },
+            PoliceStation: police_station_id ? {
+                connect: { id: police_station_id }
+            } : undefined
+        };
+
+        const ocurrence = await prisma.ocurrence.create({
+            data: ocurrenceData,
             include: {
                 User: {
                     select: {
@@ -265,47 +264,47 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
                         name: true,
                         avatar: true,
                     }
-                }
+                },
+                PoliceStation: true
             }
         });
 
-        // Emitir evento de nova ocorrência rápida
+        // Emitir evento de nova ocorrência
         emitOcurrence({
-            id: ocurrenceResponse.id,
-            title: "Ocorrência Rápida",
-            type: occurrenceType,
-            latitude: Number(latitude),
-            longitude: Number(longitude),
-            date: new Date().toISOString().split('T')[0],
-            time: new Date().toTimeString().split(' ')[0],
-            user: ocurrenceResponse.User
+            id: ocurrence.id,
+            title: ocurrence.title || "Nova Ocorrência",
+            type: ocurrence.type || "Não especificado",
+            latitude: ocurrence.latitude,
+            longitude: ocurrence.longitude,
+            date: ocurrence.date || new Date().toISOString().split('T')[0],
+            time: ocurrence.time || new Date().toTimeString().split(' ')[0],
+            user: ocurrence.User
         });
 
-        // Criar notificação para ocorrência rápida
-        if (req.userId) {
-            createNotification(
-                req.userId,
-                "Nova Ocorrência Rápida",
-                `Nova ocorrência rápida registrada em: ${latitude}, ${longitude}`
-            );
-        }
+        // Criar notificação para nova ocorrência
+        createNotification(
+            user_id,
+            "Nova Ocorrência",
+            `Nova ocorrência registrada: ${ocurrence.title}`
+        );
 
-        return res.status(201).json({
-            status: "success",
-            message: "Ocorrência rápida criada com sucesso",
-            data: ocurrenceResponse
-        });
+        logger.info(`Quick occurrence created successfully with ID: ${ocurrence.id}`);
+        return res.status(201).json(ocurrence);
 
     } catch (error) {
-        console.error("Erro detalhado:", error);
-        const errorResponse = handleError(error);
-        return res.status(errorResponse.status).json({
-            status: "error",
-            message: errorResponse.message,
-            details: errorResponse.details
-        });
+        // Remove uploaded files if they exist
+        if (req.files && Array.isArray(req.files)) {
+            req.files.forEach(file => {
+                if (file.filename) {
+                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                }
+            });
+        }
+
+        logger.error('Error creating quick occurrence:', error);
+        return res.status(500).json({ error: "Error creating quick occurrence" });
     }
-}
+};
 
 const findAll = async (req: Request, res: Response) => {
     try {
