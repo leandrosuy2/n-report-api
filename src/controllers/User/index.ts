@@ -10,19 +10,34 @@ interface IUserCreateDTO {
     name: string,
     email: string,
     password: string,
-    cpf: string
+    cpf: string,
+    street: string,
+    number: string,
+    complement?: string,
+    neighborhood: string,
+    city: string,
+    state: string,
+    zipCode: string
 }
 
-const createAdminUser = async (req: Request, res: Response) => {
+interface IRequestWithFiles extends Request {
+    files?: {
+        [fieldname: string]: Express.Multer.File[];
+    };
+}
+
+const createUser = async (req: IRequestWithFiles, res: Response) => {
     try {
         const userToCreate: IUserCreateDTO = req.body;
 
         // Validate required fields
-        if (!userToCreate.name || !userToCreate.email || !userToCreate.password || !userToCreate.cpf) {
+        if (!userToCreate.name || !userToCreate.email || !userToCreate.password || !userToCreate.cpf ||
+            !userToCreate.street || !userToCreate.number || !userToCreate.neighborhood || 
+            !userToCreate.city || !userToCreate.state || !userToCreate.zipCode) {
             logger.error('Missing required fields for user creation');
             return res.status(400).send({ 
                 message: "Missing required fields",
-                details: "Name, email, password and CPF are required"
+                details: "Name, email, password, CPF, and complete address are required"
             });
         }
 
@@ -35,16 +50,44 @@ const createAdminUser = async (req: Request, res: Response) => {
             });
         }
 
-        userToCreate.password = await createHashPassword(userToCreate.password);
-
-        const userPermission = await Permission.findFirst({ where: { role: 'admin' } });
-
-        if (!userPermission) {
-            logger.error('Admin role permission not found');
-            return res.status(400).send({ message: "Admin role not found in the system" });
+        // Validate CPF format (11 digits)
+        const cpfRegex = /^\d{11}$/;
+        if (!cpfRegex.test(userToCreate.cpf)) {
+            logger.error(`Invalid CPF format: ${userToCreate.cpf}`);
+            return res.status(400).send({ 
+                message: "Invalid CPF format" 
+            });
         }
 
-        const avatar = req.file ? req.file.filename : '';
+        // Validate ZIP code format (8 digits)
+        const zipCodeRegex = /^\d{8}$/;
+        if (!zipCodeRegex.test(userToCreate.zipCode)) {
+            logger.error(`Invalid ZIP code format: ${userToCreate.zipCode}`);
+            return res.status(400).send({ 
+                message: "Invalid ZIP code format" 
+            });
+        }
+
+        userToCreate.password = await createHashPassword(userToCreate.password);
+
+        const userPermission = await Permission.findFirst({ where: { role: 'USER' } });
+
+        if (!userPermission) {
+            logger.error('User role permission not found');
+            return res.status(400).send({ message: "User role not found in the system" });
+        }
+
+        const avatar = req.files?.['avatar']?.[0]?.filename || '';
+        const documentPhoto = req.files?.['documentPhoto']?.[0]?.filename || '';
+        const documentSelfie = req.files?.['documentSelfie']?.[0]?.filename || '';
+
+        if (!documentPhoto || !documentSelfie) {
+            logger.error('Missing document verification files');
+            return res.status(400).send({ 
+                message: "Document verification files are required",
+                details: "Please provide both document photo and selfie with document"
+            });
+        }
 
         // Check if user with email already exists
         const existingUser = await User.findFirst({ where: { email: userToCreate.email } });
@@ -57,20 +100,31 @@ const createAdminUser = async (req: Request, res: Response) => {
             data: {
                 ...userToCreate,
                 avatar: avatar,
+                documentPhoto: documentPhoto,
+                documentSelfie: documentSelfie,
+                documentVerified: false, // Initially not verified
                 permission_id: userPermission.id
             },
             select: {
                 id: true,
                 name: true,
                 email: true,
-                password: true
+                cpf: true,
+                street: true,
+                number: true,
+                complement: true,
+                neighborhood: true,
+                city: true,
+                state: true,
+                zipCode: true,
+                documentVerified: true
             }
         });
 
-        logger.info(`Admin user created successfully: ${userResponse.id}`);
+        logger.info(`User created successfully: ${userResponse.id}`);
         res.status(201).send(userResponse);
     } catch (error: any) {
-        logger.error('Error creating admin user:', { error: error.message, stack: error.stack });
+        logger.error('Error creating user:', { error: error.message, stack: error.stack });
         res.status(500).send({
             message: "Error creating user",
             details: error.message
@@ -80,21 +134,57 @@ const createAdminUser = async (req: Request, res: Response) => {
 
 const findAll = async (req: Request, res: Response) => {
     try {
-        const allUsers = await User.findMany({
+        // Verificar permissões do usuário
+        const user = await User.findFirst({
+            where: { id: req.userId },
             select: {
-                id: true,
-                name: true,
-                email: true
+                Permission: {
+                    select: { role: true }
+                }
             }
         });
 
-        logger.info(`Retrieved ${allUsers.length} users`);
-        res.status(200).send(allUsers);
-    } catch (error: any) {
-        logger.error('Error fetching all users:', { error: error.message, stack: error.stack });
-        res.status(500).send({
-            message: "Error fetching users",
-            details: error.message
+        if (!user) {
+            return res.status(404).json({
+                status: "error",
+                message: "Usuário não encontrado",
+                code: "USER_NOT_FOUND"
+            });
+        }
+
+        // Apenas admin e superadmin podem listar todos os usuários
+        if (user.Permission.role !== 'ADMIN' && user.Permission.role !== 'SUPERADMIN') {
+            return res.status(403).json({
+                status: "error",
+                message: "Você não tem permissão para listar todos os usuários",
+                code: "UNAUTHORIZED"
+            });
+        }
+
+        const users = await User.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                cpf: true,
+                avatar: true,
+                created_at: true,
+                updated_at: true,
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
+        });
+
+        return res.status(200).json(users);
+    } catch (error) {
+        console.error("Erro ao listar usuários:", error);
+        return res.status(500).json({
+            status: "error",
+            message: "Erro ao listar usuários",
+            details: error
         });
     }
 }
@@ -171,6 +261,14 @@ const profile = async (req: Request, res: Response) => {
                 name: true,
                 email: true,
                 cpf: true,
+                street: true,
+                number: true,
+                complement: true,
+                neighborhood: true,
+                city: true,
+                state: true,
+                zipCode: true,
+                documentVerified: true,
                 created_at: true,
                 updated_at: true,
                 Permission: {
@@ -565,7 +663,7 @@ const removeSelf = async (req: Request, res: Response) => {
 }
 
 export default {
-    createAdminUser,
+    createUser,
     findAll,
     findById,
     profile,

@@ -9,6 +9,7 @@ import ocurrenceRouter from "../routers/Ocurrence";
 import policeStationRouter from "../routers/PoliceStation";
 import imageRouter from "../routers/Image";
 import chatRouter from "../routes/chat.routes";
+import notificationRouter from "../routes/notification.routes";
 
 const app = express();
 const basePathUrlApiV1 = "/api/v1";
@@ -33,9 +34,10 @@ app.use("/auth", authRouter);
 app.use(`${basePathUrlApiV1}/users`, userRouter);
 app.use(`${basePathUrlApiV1}/permissions`, permissionRouters);
 app.use(`${basePathUrlApiV1}/ocurrences`, ocurrenceRouter);
-app.use(`${basePathUrlApiV1}/policeStation`, policeStationRouter);
+app.use(`${basePathUrlApiV1}/police-stations`, policeStationRouter);
 app.use(`${basePathUrlApiV1}/images`, imageRouter);
-app.use(`${basePathUrlApiV1}`, chatRouter);
+app.use(`${basePathUrlApiV1}/chat`, chatRouter);
+app.use(`${basePathUrlApiV1}/notifications`, notificationRouter);
 
 const uploadsPath = path.join(__dirname, "..", "..", "uploads");
 console.log('Serving uploads from:', uploadsPath);

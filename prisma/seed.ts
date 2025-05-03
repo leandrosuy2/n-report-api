@@ -4,6 +4,15 @@ const prisma = new PrismaClient()
 async function main() {
   try {
     // Criar permissões padrão
+    const superAdminPermission = await prisma.permission.upsert({
+      where: { id: '0' },
+      update: { role: 'SUPERADMIN' },
+      create: {
+        id: '0',
+        role: 'SUPERADMIN',
+      }
+    })
+
     const adminPermission = await prisma.permission.upsert({
       where: { id: '1' },
       update: { role: 'ADMIN' },
@@ -22,7 +31,31 @@ async function main() {
       }
     })
 
-    console.log('✅ Permissões criadas:', { adminPermission, userPermission })
+    console.log('✅ Permissões criadas:', { superAdminPermission, adminPermission, userPermission })
+
+    // Criar usuário superadmin padrão
+    const superAdminUser = await prisma.user.upsert({
+      where: { email: 'superadmin@admin.com' },
+      update: {},
+      create: {
+        name: 'Super Administrador',
+        email: 'superadmin@admin.com',
+        password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
+        cpf: '00000000000',
+        avatar: 'default.png',
+        street: 'Rua Super Admin',
+        number: '0',
+        complement: 'Sala 0',
+        neighborhood: 'Centro',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '00000000',
+        documentPhoto: 'default.png',
+        documentSelfie: 'default.png',
+        documentVerified: true,
+        permission_id: superAdminPermission.id
+      }
+    })
 
     // Criar usuário admin padrão
     const adminUser = await prisma.user.upsert({
@@ -34,6 +67,16 @@ async function main() {
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '11111111111',
         avatar: 'default.png',
+        street: 'Rua Administrador',
+        number: '1',
+        complement: 'Sala 1',
+        neighborhood: 'Centro',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '01001000',
+        documentPhoto: 'default.png',
+        documentSelfie: 'default.png',
+        documentVerified: true,
         permission_id: adminPermission.id
       }
     })
@@ -48,6 +91,16 @@ async function main() {
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '22222222222',
         avatar: 'default.png',
+        street: 'Rua Usuário Um',
+        number: '2',
+        complement: 'Apto 2',
+        neighborhood: 'Jardim',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '02002000',
+        documentPhoto: 'default.png',
+        documentSelfie: 'default.png',
+        documentVerified: true,
         permission_id: userPermission.id
       }
     })
@@ -62,6 +115,16 @@ async function main() {
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '33333333333',
         avatar: 'default.png',
+        street: 'Rua Usuário Dois',
+        number: '3',
+        complement: 'Apto 3',
+        neighborhood: 'Vila',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '03003000',
+        documentPhoto: 'default.png',
+        documentSelfie: 'default.png',
+        documentVerified: true,
         permission_id: userPermission.id
       }
     })
@@ -76,11 +139,22 @@ async function main() {
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '44444444444',
         avatar: 'default.png',
+        street: 'Rua Usuário Três',
+        number: '4',
+        complement: 'Apto 4',
+        neighborhood: 'Bairro',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '04004000',
+        documentPhoto: 'default.png',
+        documentSelfie: 'default.png',
+        documentVerified: true,
         permission_id: userPermission.id
       }
     })
 
     console.log('✅ Usuários criados com sucesso!')
+    console.log('👤 Super Admin:', superAdminUser.email)
     console.log('👤 Admin:', adminUser.email)
     console.log('👤 Usuário 1:', user1.email)
     console.log('👤 Usuário 2:', user2.email)

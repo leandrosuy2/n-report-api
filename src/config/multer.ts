@@ -56,4 +56,11 @@ const uploadsConfig = {
     }
 };
 
-export default uploadsConfig;
+// Configuração para upload de múltiplos arquivos
+const multipleUploads = multer(uploadsConfig).fields([
+    { name: 'avatar', maxCount: 1 },
+    { name: 'documentPhoto', maxCount: 1 },
+    { name: 'documentSelfie', maxCount: 1 }
+]);
+
+export { uploadsConfig, multipleUploads };

@@ -790,7 +790,7 @@ const remove = async (req: Request, res: Response) => {
         }
 
         // Definir condições de exclusão baseadas na permissão
-        const deleteConditions = user.Permission.role === 'admin'
+        const deleteConditions = (user.Permission.role === 'ADMIN' || user.Permission.role === 'SUPERADMIN')
             ? { id }
             : { id, user_id: req.userId };
 
