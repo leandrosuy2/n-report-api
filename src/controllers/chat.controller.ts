@@ -9,7 +9,7 @@ export const createChat = async (req: Request, res: Response) => {
         const { ocurrenceId } = req.params;
         const userId = req.user?.id; // Assuming you have user info in req.user
 
-        // Verificar se a ocorrência existe e não está resolvida
+        // Verificar se a ocorrência existe e não está encerrada
         const ocurrence = await prisma.ocurrence.findUnique({
             where: { id: ocurrenceId }
         });
@@ -18,8 +18,8 @@ export const createChat = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Ocorrência não encontrada' });
         }
 
-        if (ocurrence.resolved) {
-            return res.status(400).json({ message: 'Não é possível criar um chat para uma ocorrência resolvida' });
+        if (ocurrence.status === 'ENCERRADO') {
+            return res.status(400).json({ message: 'Não é possível criar um chat para uma ocorrência encerrada' });
         }
 
         // Verificar se já existe um chat para esta ocorrência
@@ -31,7 +31,7 @@ export const createChat = async (req: Request, res: Response) => {
                         id: true,
                         title: true,
                         description: true,
-                        resolved: true,
+                        status: true,
                         created_at: true,
                         updated_at: true
                     }
@@ -53,16 +53,33 @@ export const createChat = async (req: Request, res: Response) => {
         }
 
         // Criar novo chat
-        const chat = await prisma.chat.create({
+        const newChat = await prisma.chat.create({
             data: {
                 ocurrence_id: ocurrenceId
+            },
+            include: {
+                ocurrence: {
+                    select: {
+                        id: true,
+                        title: true,
+                        description: true,
+                        status: true,
+                        created_at: true,
+                        updated_at: true
+                    }
+                },
+                messages: true
             }
         });
 
-        return res.status(201).json(chat);
+        return res.status(201).json({
+            message: 'Chat criado com sucesso',
+            chat: newChat
+        });
+
     } catch (error) {
         console.error('Erro ao criar chat:', error);
-        return res.status(500).json({ message: 'Erro interno do servidor' });
+        return res.status(500).json({ message: 'Erro ao criar chat' });
     }
 };
 
@@ -117,7 +134,7 @@ export const closeChatEndpoint = async (req: Request, res: Response) => {
         // Fechar o chat
         await prisma.ocurrence.update({
             where: { id: chat.ocurrence_id },
-            data: { resolved: true }
+            data: { status: 'ENCERRADO' }
         });
 
         // Notificar todos os clientes conectados
@@ -150,7 +167,7 @@ export const getChatStatus = async (req: Request, res: Response) => {
 
         return res.json({
             exists: true,
-            isResolved: chat.ocurrence.resolved,
+            isResolved: chat.ocurrence.status === 'ENCERRADO',
             chat: chat
         });
     } catch (error) {

@@ -21,9 +21,12 @@ ocurrenceRouter.get("/count/thefts", authentication, OcurrenceController.theftCo
 // Rotas que precisam de ID
 ocurrenceRouter.get("/:id", authentication, OcurrenceController.findById);
 ocurrenceRouter.put("/:id", authentication, upload.array('photos', 5), OcurrenceController.update);
+ocurrenceRouter.patch("/:id/status", authentication, OcurrenceController.updateStatus);
 ocurrenceRouter.delete("/:id", authentication, OcurrenceController.remove);
 
 // Nova rota para adicionar fotos a uma ocorrência existente
 ocurrenceRouter.post("/:id/photos", authentication, upload.array('photos', 5), OcurrenceController.addPhotos);
+
+ocurrenceRouter.post("/panic", authentication, Authorization.authorizationGrupoDeRisco, OcurrenceController.createPanicOcurrence);
 
 export default ocurrenceRouter;

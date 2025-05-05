@@ -1,21 +1,40 @@
-/*
-  Warnings:
+-- CreateEnum
+CREATE TYPE "OcurrenceStatus" AS ENUM ('EM_ABERTO', 'ACEITO', 'ATENDIDO', 'ENCERRADO');
 
-  - You are about to drop the `Image` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Ocurrence` table. If the table is not empty, all the data it contains will be lost.
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "cpf" TEXT NOT NULL,
+    "avatar" TEXT NOT NULL,
+    "street" TEXT NOT NULL,
+    "number" TEXT NOT NULL,
+    "complement" TEXT,
+    "neighborhood" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "zipCode" TEXT NOT NULL,
+    "documentPhoto" TEXT NOT NULL,
+    "documentSelfie" TEXT NOT NULL,
+    "documentVerified" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "permission_id" TEXT NOT NULL,
 
-*/
--- DropForeignKey
-ALTER TABLE "Ocurrence" DROP CONSTRAINT "Ocurrence_policeStation_id_fkey";
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
--- DropForeignKey
-ALTER TABLE "Ocurrence" DROP CONSTRAINT "Ocurrence_user_id_fkey";
+-- CreateTable
+CREATE TABLE "Permission" (
+    "id" TEXT NOT NULL,
+    "role" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
--- DropTable
-DROP TABLE "Image";
-
--- DropTable
-DROP TABLE "Ocurrence";
+    CONSTRAINT "Permission_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "ocurrences" (
@@ -27,7 +46,7 @@ CREATE TABLE "ocurrences" (
     "longitude" DOUBLE PRECISION NOT NULL,
     "date" TEXT,
     "time" TEXT,
-    "resolved" BOOLEAN NOT NULL DEFAULT false,
+    "status" "OcurrenceStatus" NOT NULL DEFAULT 'EM_ABERTO',
     "photos" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -47,6 +66,20 @@ CREATE TABLE "images" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "images_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PoliceStation" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "latitude" DOUBLE PRECISION NOT NULL,
+    "longitude" DOUBLE PRECISION NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PoliceStation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -72,7 +105,22 @@ CREATE TABLE "chat_messages" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_cpf_key" ON "User"("cpf");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PoliceStation_email_key" ON "PoliceStation"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PoliceStation_phone_key" ON "PoliceStation"("phone");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "chats_ocurrence_id_key" ON "chats"("ocurrence_id");
+
+-- AddForeignKey
+ALTER TABLE "User" ADD CONSTRAINT "User_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "Permission"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ocurrences" ADD CONSTRAINT "ocurrences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

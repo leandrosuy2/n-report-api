@@ -31,7 +31,31 @@ async function main() {
       }
     })
 
-    console.log('✅ Permissões criadas:', { superAdminPermission, adminPermission, userPermission })
+    const grupoDeRiscoPermission = await prisma.permission.upsert({
+      where: { id: '3' },
+      update: { role: 'GRUPO_DE_RISCO' },
+      create: {
+        id: '3',
+        role: 'GRUPO_DE_RISCO',
+      }
+    })
+
+    const guardinhaDaRuaPermission = await prisma.permission.upsert({
+      where: { id: '4' },
+      update: { role: 'GUARDINHA_DA_RUA' },
+      create: {
+        id: '4',
+        role: 'GUARDINHA_DA_RUA',
+      }
+    })
+
+    console.log('✅ Permissões criadas:', { 
+      superAdminPermission, 
+      adminPermission, 
+      userPermission,
+      grupoDeRiscoPermission,
+      guardinhaDaRuaPermission
+    })
 
     // Criar usuário superadmin padrão
     const superAdminUser = await prisma.user.upsert({

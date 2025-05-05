@@ -34,6 +34,70 @@ const authorizationAdmin = async (req: Request, res: Response, next: NextFunctio
     }
 }
 
+const authorizationGrupoDeRisco = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { userId } = req;
+
+        const user = await User.findUnique({
+            where: {
+                id: userId
+            },
+            select: {
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
+        })
+
+        if (user?.Permission.role !== "GRUPO_DE_RISCO") {
+            return res.status(403).send({
+                message: unauthorizedMessage
+            })
+        }
+
+        next()
+    } catch (error: any) {
+        return res.status(403).send({
+            message: unauthorizedMessage
+        })
+    }
+}
+
+const authorizationGuardinhaDaRua = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { userId } = req;
+
+        const user = await User.findUnique({
+            where: {
+                id: userId
+            },
+            select: {
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
+        })
+
+        if (user?.Permission.role !== "GUARDINHA_DA_RUA") {
+            return res.status(403).send({
+                message: unauthorizedMessage
+            })
+        }
+
+        next()
+    } catch (error: any) {
+        return res.status(403).send({
+            message: unauthorizedMessage
+        })
+    }
+}
+
 export default {
-    authorizationAdmin
+    authorizationAdmin,
+    authorizationGrupoDeRisco,
+    authorizationGuardinhaDaRua
 }

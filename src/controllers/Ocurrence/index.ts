@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../../lib/prisma";
+import { OcurrenceStatus } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import logger from "../../utils/logger";
@@ -318,7 +319,7 @@ const findAll = async (req: Request, res: Response) => {
                 longitude: true,
                 date: true,
                 time: true,
-                resolved: true,
+                status: true,
                 photos: true,
                 User: {
                     select: {
@@ -369,7 +370,7 @@ const findAllSelf = async (req: Request, res: Response) => {
                 longitude: true,
                 date: true,
                 time: true,
-                resolved: true,
+                status: true,
                 photos: true,
                 User: {
                     select: {
@@ -524,7 +525,7 @@ const findById = async (req: Request, res: Response) => {
                 longitude: true,
                 date: true,
                 time: true,
-                resolved: true,
+                status: true,
                 photos: true,
                 User: {
                     select: {
@@ -570,7 +571,7 @@ const findById = async (req: Request, res: Response) => {
 const update = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { latitude, longitude, title, description, type, date, time, policeStation_id } = req.body;
+        const { latitude, longitude, title, description, type, date, time, policeStation_id, status } = req.body;
 
         if (!id) {
             return res.status(400).json({
@@ -692,6 +693,18 @@ const update = async (req: Request, res: Response) => {
             updateData.time = time;
         }
 
+        if (status !== undefined) {
+            const validStatus = ['EM_ABERTO', 'ACEITO', 'ATENDIDO', 'ENCERRADO'];
+            if (!validStatus.includes(status)) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Status inválido. Status permitidos: " + validStatus.join(', '),
+                    code: "INVALID_STATUS"
+                });
+            }
+            updateData.status = status;
+        }
+
         // Verificar delegacia se fornecida
         if (policeStation_id !== undefined) {
             if (policeStation_id) {
@@ -724,7 +737,7 @@ const update = async (req: Request, res: Response) => {
                 longitude: true,
                 date: true,
                 time: true,
-                resolved: true,
+                status: true,
                 photos: true,
                 User: {
                     select: {
@@ -745,6 +758,89 @@ const update = async (req: Request, res: Response) => {
         return res.status(200).json({
             status: "success",
             message: "Ocorrência atualizada com sucesso",
+            data: updatedOcurrence
+        });
+
+    } catch (error) {
+        console.error("Erro detalhado:", error);
+        const errorResponse = handleError(error);
+        return res.status(errorResponse.status).json({
+            status: "error",
+            message: errorResponse.message,
+            details: errorResponse.details
+        });
+    }
+}
+
+const updateStatus = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!id) {
+            return res.status(400).json({
+                status: "error",
+                message: "ID da ocorrência é obrigatório",
+                code: "MISSING_ID"
+            });
+        }
+
+        // Verificar se a ocorrência existe
+        const existingOcurrence = await prisma.ocurrence.findUnique({
+            where: { id }
+        });
+
+        if (!existingOcurrence) {
+            return res.status(404).json({
+                status: "error",
+                message: "Ocorrência não encontrada",
+                code: "OCCURRENCE_NOT_FOUND"
+            });
+        }
+
+        // Validar status
+        const validStatus = ['EM_ABERTO', 'ACEITO', 'ATENDIDO', 'ENCERRADO'];
+        if (!validStatus.includes(status)) {
+            return res.status(400).json({
+                status: "error",
+                message: "Status inválido. Status permitidos: " + validStatus.join(', '),
+                code: "INVALID_STATUS"
+            });
+        }
+
+        const updatedOcurrence = await prisma.ocurrence.update({
+            where: { id },
+            data: { status },
+            select: {
+                id: true,
+                title: true,
+                description: true,
+                type: true,
+                latitude: true,
+                longitude: true,
+                date: true,
+                time: true,
+                status: true,
+                photos: true,
+                User: {
+                    select: {
+                        id: true,
+                        name: true,
+                        avatar: true,
+                    }
+                },
+                PoliceStation: {
+                    select: {
+                        name: true,
+                        phone: true,
+                    }
+                }
+            }
+        });
+
+        return res.status(200).json({
+            status: "success",
+            message: "Status da ocorrência atualizado com sucesso",
             data: updatedOcurrence
         });
 
@@ -908,6 +1004,53 @@ const addPhotos = async (req: Request, res: Response) => {
     }
 }
 
+const createPanicOcurrence = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req;
+        const { latitude, longitude } = req.body;
+
+        const user = await User.findUnique({
+            where: { id: userId },
+            select: {
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
+        });
+
+        if (!user || user.Permission.role !== 'GRUPO_DE_RISCO') {
+            return res.status(403).json({
+                message: "Apenas usuários do Grupo de Risco podem criar ocorrências de pânico"
+            });
+        }
+
+        const ocurrence = await Ocurrence.create({
+            data: {
+                title: "Botão de Pânico Ativado",
+                description: "Botão de pânico foi ativado em estabelecimento de risco",
+                type: "PANIC",
+                latitude,
+                longitude,
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toTimeString().split(' ')[0],
+                user_id: userId
+            }
+        });
+
+        // Aqui você pode adicionar lógica para notificar a guarda municipal
+        // e outras autoridades relevantes
+
+        return res.status(201).json(ocurrence);
+    } catch (error) {
+        console.error("Erro ao criar ocorrência de pânico:", error);
+        return res.status(500).json({
+            message: "Erro ao criar ocorrência de pânico"
+        });
+    }
+}
+
 export default {
     createOcurrence,
     createQuickOcurrence,
@@ -919,6 +1062,8 @@ export default {
     theftCount,
     findById,
     update,
+    updateStatus,
     remove,
-    addPhotos
+    addPhotos,
+    createPanicOcurrence
 };

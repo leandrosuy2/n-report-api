@@ -53,7 +53,7 @@ model Ocurrence {
   longitude   Float
   date        String?
   time        String?
-  resolved    Boolean  @default(false)
+  status      OcurrenceStatus @default(EM_ABERTO)
   photos      String[] @default([])
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
@@ -65,6 +65,13 @@ model Ocurrence {
   chat             Chat?
 
   @@map("ocurrences")
+}
+
+enum OcurrenceStatus {
+  EM_ABERTO
+  ACEITO
+  ATENDIDO
+  ENCERRADO
 }
 
 model Image {

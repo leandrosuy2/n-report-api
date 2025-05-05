@@ -4,7 +4,7 @@
   "description": "aplicação onde você pode alertar crimes em uma determinado localização.",
   "main": "index.ts",
   "scripts": {
-    "start": "npx prisma generate && npx prisma migrate deploy && npx prisma db seed && tsx ./src/index.ts",
+    "start": "npx prisma generate && npx prisma db push --force-reset && npx prisma db seed && tsx ./src/index.ts",
     "dev": "nodemon src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

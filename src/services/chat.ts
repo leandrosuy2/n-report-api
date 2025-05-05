@@ -97,10 +97,10 @@ export const closeChat = async (chatId: string) => {
     });
 
     if (chat) {
-      // Atualizar o status da ocorrência
+      // Atualizar o status da ocorrência para ENCERRADO
       await prisma.ocurrence.update({
         where: { id: chat.ocurrence_id },
-        data: { resolved: true }
+        data: { status: 'ENCERRADO' }
       });
 
       // Notificar todos os clientes conectados que o chat foi fechado

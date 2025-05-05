@@ -132,6 +132,136 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
     }
 }
 
+const createGrupoDeRiscoUser = async (req: IRequestWithFiles, res: Response) => {
+    try {
+        const userToCreate: IUserCreateDTO = req.body;
+
+        // Verificar se o usuário que está fazendo a requisição é admin
+        const adminUser = await User.findUnique({
+            where: { id: req.userId },
+            select: {
+                Permission: {
+                    select: { role: true }
+                }
+            }
+        });
+
+        if (!adminUser || (adminUser.Permission.role !== 'ADMIN' && adminUser.Permission.role !== 'SUPERADMIN')) {
+            return res.status(403).json({
+                message: "Apenas administradores podem criar usuários do Grupo de Risco"
+            });
+        }
+
+        // Validate required fields
+        if (!userToCreate.name || !userToCreate.email || !userToCreate.password || !userToCreate.cpf ||
+            !userToCreate.street || !userToCreate.number || !userToCreate.neighborhood || 
+            !userToCreate.city || !userToCreate.state || !userToCreate.zipCode) {
+            logger.error('Missing required fields for Grupo de Risco user creation');
+            return res.status(400).send({ 
+                message: "Missing required fields",
+                details: "Name, email, password, CPF, and complete address are required"
+            });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userToCreate.email)) {
+            logger.error(`Invalid email format: ${userToCreate.email}`);
+            return res.status(400).send({ 
+                message: "Invalid email format" 
+            });
+        }
+
+        // Validate CPF format (11 digits)
+        const cpfRegex = /^\d{11}$/;
+        if (!cpfRegex.test(userToCreate.cpf)) {
+            logger.error(`Invalid CPF format: ${userToCreate.cpf}`);
+            return res.status(400).send({ 
+                message: "Invalid CPF format" 
+            });
+        }
+
+        // Validate ZIP code format (8 digits)
+        const zipCodeRegex = /^\d{8}$/;
+        if (!zipCodeRegex.test(userToCreate.zipCode)) {
+            logger.error(`Invalid ZIP code format: ${userToCreate.zipCode}`);
+            return res.status(400).send({ 
+                message: "Invalid ZIP code format" 
+            });
+        }
+
+        userToCreate.password = await createHashPassword(userToCreate.password);
+
+        // Buscar a permissão de Grupo de Risco
+        const grupoDeRiscoPermission = await Permission.findFirst({
+            where: { role: 'GRUPO_DE_RISCO' }
+        });
+
+        if (!grupoDeRiscoPermission) {
+            logger.error('Grupo de Risco permission not found');
+            return res.status(400).send({ message: "Grupo de Risco permission not found in the system" });
+        }
+
+        const avatar = req.files?.['avatar']?.[0]?.filename || '';
+        const documentPhoto = req.files?.['documentPhoto']?.[0]?.filename || '';
+        const documentSelfie = req.files?.['documentSelfie']?.[0]?.filename || '';
+
+        if (!documentPhoto || !documentSelfie) {
+            logger.error('Missing document verification files');
+            return res.status(400).send({ 
+                message: "Document verification files are required",
+                details: "Please provide both document photo and selfie with document"
+            });
+        }
+
+        // Check if user with email already exists
+        const existingUser = await User.findFirst({ where: { email: userToCreate.email } });
+        if (existingUser) {
+            logger.warn(`Attempted to create user with existing email: ${userToCreate.email}`);
+            return res.status(409).send({ message: "User with this email already exists" });
+        }
+
+        const userResponse = await User.create({
+            data: {
+                ...userToCreate,
+                avatar: avatar,
+                documentPhoto: documentPhoto,
+                documentSelfie: documentSelfie,
+                documentVerified: true, // Grupo de Risco precisa ter verificação automática
+                permission_id: grupoDeRiscoPermission.id
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                cpf: true,
+                street: true,
+                number: true,
+                complement: true,
+                neighborhood: true,
+                city: true,
+                state: true,
+                zipCode: true,
+                documentVerified: true,
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
+        });
+
+        logger.info(`Grupo de Risco user created successfully: ${userResponse.id}`);
+        res.status(201).send(userResponse);
+    } catch (error: any) {
+        logger.error('Error creating Grupo de Risco user:', { error: error.message, stack: error.stack });
+        res.status(500).send({
+            message: "Error creating Grupo de Risco user",
+            details: error.message
+        });
+    }
+}
+
 const findAll = async (req: Request, res: Response) => {
     try {
         // Verificar permissões do usuário
@@ -440,7 +570,7 @@ const updateSelf = async (req: Request, res: Response) => {
             });
         }
 
-        const avatar = req.file ? req.file.filename : '';
+        const avatar = (req as IRequestWithFiles).files?.['avatar']?.[0]?.filename || '';
 
         try {
             const user = await updateUser(id as string, userToCreate, avatar);
@@ -662,8 +792,68 @@ const removeSelf = async (req: Request, res: Response) => {
     }
 }
 
+const toggleGrupoDeRiscoStatus = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { isActive } = req.body;
+
+        // Verificar se o usuário que está fazendo a requisição é admin
+        const adminUser = await User.findUnique({
+            where: { id: req.userId },
+            select: {
+                Permission: {
+                    select: { role: true }
+                }
+            }
+        });
+
+        if (!adminUser || (adminUser.Permission.role !== 'ADMIN' && adminUser.Permission.role !== 'SUPERADMIN')) {
+            return res.status(403).json({
+                message: "Apenas administradores podem alterar o status de Grupo de Risco"
+            });
+        }
+
+        // Buscar a permissão de Grupo de Risco
+        const grupoDeRiscoPermission = await Permission.findFirst({
+            where: { role: 'GRUPO_DE_RISCO' }
+        });
+
+        if (!grupoDeRiscoPermission) {
+            return res.status(404).json({
+                message: "Permissão de Grupo de Risco não encontrada"
+            });
+        }
+
+        // Atualizar a permissão do usuário
+        const updatedUser = await User.update({
+            where: { id: userId },
+            data: {
+                permission_id: isActive ? grupoDeRiscoPermission.id : '2' // '2' é o ID da permissão USER
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
+            }
+        });
+
+        return res.status(200).json(updatedUser);
+    } catch (error) {
+        console.error("Erro ao alterar status de Grupo de Risco:", error);
+        return res.status(500).json({
+            message: "Erro ao alterar status de Grupo de Risco"
+        });
+    }
+}
+
 export default {
     createUser,
+    createGrupoDeRiscoUser,
     findAll,
     findById,
     profile,
@@ -673,4 +863,5 @@ export default {
     updateEmail,
     remove,
     removeSelf,
+    toggleGrupoDeRiscoStatus
 }
