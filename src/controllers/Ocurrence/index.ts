@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../../lib/prisma";
-import { OcurrenceStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import logger from "../../utils/logger";
@@ -9,7 +9,11 @@ import PoliceStation from "../../models/PoliceStation";
 import User from "../../models/User";
 import { createNotification } from "../../utils/notifications";
 import { emitOcurrence } from "../../services/socket";
-import { Prisma } from "@prisma/client";
+
+// Definir o caminho do diretório de uploads
+const UPLOADS_DIR = process.env.NODE_ENV === 'production' 
+    ? '/nreportapi/uploads'
+    : path.resolve(__dirname, '../../../uploads');
 
 interface IOcurrenceCreateDTO {
     title?: string,
@@ -95,10 +99,11 @@ const createOcurrence = async (req: Request, res: Response) => {
         if (!user_id) {
             console.log('User not authenticated');
             // Remove uploaded files if they exist
-            if (req.files && Array.isArray(req.files)) {
-                req.files.forEach(file => {
+            if (req.files) {
+                const files = Array.isArray(req.files) ? req.files : req.files['photos'] || [];
+                files.forEach(file => {
                     if (file.filename) {
-                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                        fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                     }
                 });
             }
@@ -109,10 +114,11 @@ const createOcurrence = async (req: Request, res: Response) => {
         if (!latitude || !longitude || !title || !description || !type || !date || !time) {
             console.log('Missing required fields:', { latitude, longitude, title, description, type, date, time });
             // Remove uploaded files if they exist
-            if (req.files && Array.isArray(req.files)) {
-                req.files.forEach(file => {
+            if (req.files) {
+                const files = Array.isArray(req.files) ? req.files : req.files['photos'] || [];
+                files.forEach(file => {
                     if (file.filename) {
-                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                        fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                     }
                 });
             }
@@ -121,16 +127,25 @@ const createOcurrence = async (req: Request, res: Response) => {
 
         // Get photo filenames if files were uploaded
         console.log('Processing files:', req.files);
-        const photos = req.files && Array.isArray(req.files) 
-            ? req.files.map(file => {
+        console.log('Files type:', typeof req.files);
+        console.log('Is array?', Array.isArray(req.files));
+        
+        let photos: string[] = [];
+        if (req.files) {
+            const files = Array.isArray(req.files) ? req.files : req.files['photos'] || [];
+            console.log('Files array:', files);
+            console.log('Files length:', files.length);
+            
+            photos = files.map(file => {
                 console.log('Processing file:', file);
+                console.log('File object:', JSON.stringify(file, null, 2));
                 if (!file.filename) {
                     console.log('File has no filename:', file);
                     return null;
                 }
                 return file.filename;
-            }).filter((filename): filename is string => filename !== null)
-            : [];
+            }).filter((filename): filename is string => filename !== null);
+        }
         
         console.log('Final photos array:', photos);
 
@@ -191,10 +206,11 @@ const createOcurrence = async (req: Request, res: Response) => {
 
     } catch (error) {
         // Remove uploaded files if they exist
-        if (req.files && Array.isArray(req.files)) {
-            req.files.forEach(file => {
+        if (req.files) {
+            const files = Array.isArray(req.files) ? req.files : req.files['photos'] || [];
+            files.forEach(file => {
                 if (file.filename) {
-                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                 }
             });
         }
@@ -214,7 +230,7 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
             if (req.files && Array.isArray(req.files)) {
                 req.files.forEach(file => {
                     if (file.filename) {
-                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                        fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                     }
                 });
             }
@@ -227,7 +243,7 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
             if (req.files && Array.isArray(req.files)) {
                 req.files.forEach(file => {
                     if (file.filename) {
-                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                        fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                     }
                 });
             }
@@ -297,7 +313,7 @@ const createQuickOcurrence = async (req: Request, res: Response) => {
         if (req.files && Array.isArray(req.files)) {
             req.files.forEach(file => {
                 if (file.filename) {
-                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                 }
             });
         }
@@ -928,7 +944,7 @@ const addPhotos = async (req: Request, res: Response) => {
             if (req.files && Array.isArray(req.files)) {
                 req.files.forEach(file => {
                     if (file.filename) {
-                        fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                        fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                     }
                 });
             }
@@ -953,7 +969,7 @@ const addPhotos = async (req: Request, res: Response) => {
             // Remove uploaded files
             req.files.forEach(file => {
                 if (file.filename) {
-                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                 }
             });
             return res.status(404).json({ error: "Occurrence not found" });
@@ -964,7 +980,7 @@ const addPhotos = async (req: Request, res: Response) => {
             // Remove uploaded files
             req.files.forEach(file => {
                 if (file.filename) {
-                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                 }
             });
             return res.status(403).json({ error: "Not authorized to modify this occurrence" });
@@ -994,7 +1010,7 @@ const addPhotos = async (req: Request, res: Response) => {
         if (req.files && Array.isArray(req.files)) {
             req.files.forEach(file => {
                 if (file.filename) {
-                    fs.unlinkSync(path.join(__dirname, '../../../uploads', file.filename));
+                    fs.unlinkSync(path.join(UPLOADS_DIR, file.filename));
                 }
             });
         }

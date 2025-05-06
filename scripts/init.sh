@@ -24,6 +24,12 @@ npx prisma generate
 npx prisma db push --accept-data-loss
 npx prisma db seed
 
+# Garantir que o diretório de uploads existe e tem as permissões corretas
+echo "🔄 Configurando diretório de uploads..."
+mkdir -p /nreportapi/uploads
+chown -R node:node /nreportapi/uploads
+chmod -R 755 /nreportapi/uploads
+
 # Inicia a aplicação
 echo "🚀 Iniciando a aplicação..."
 npm start

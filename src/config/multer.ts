@@ -3,20 +3,23 @@ import path from "path";
 import crypto from "crypto";
 import fs from "fs";
 
-// Criar diretório de uploads se não existir
-const uploadDir = path.resolve(__dirname, "..", "..", "uploads");
-console.log('Upload directory:', uploadDir);
+// Definir o caminho do diretório de uploads
+const UPLOADS_DIR = process.env.NODE_ENV === 'production' 
+    ? '/nreportapi/uploads'
+    : path.resolve(__dirname, "..", "..", "uploads");
 
-if (!fs.existsSync(uploadDir)) {
+console.log('Upload directory:', UPLOADS_DIR);
+
+if (!fs.existsSync(UPLOADS_DIR)) {
     console.log('Creating upload directory...');
-    fs.mkdirSync(uploadDir, { recursive: true });
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
 // Configuração do armazenamento
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         console.log('Multer destination called for file:', file.originalname);
-        cb(null, uploadDir);
+        cb(null, UPLOADS_DIR);
     },
     filename: (req, file, cb) => {
         // Gera um nome único para o arquivo
@@ -60,7 +63,12 @@ const uploadsConfig = {
 const multipleUploads = multer(uploadsConfig).fields([
     { name: 'avatar', maxCount: 1 },
     { name: 'documentPhoto', maxCount: 1 },
-    { name: 'documentSelfie', maxCount: 1 }
+    { name: 'documentSelfie', maxCount: 1 },
+    { name: 'photos', maxCount: 5 }
 ]);
 
-export { uploadsConfig, multipleUploads };
+// Configuração para upload de fotos de ocorrência
+const photosUpload = multer(uploadsConfig).array('photos', 5);
+
+// Exportar configurações
+export { uploadsConfig, multipleUploads, photosUpload };

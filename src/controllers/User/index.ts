@@ -70,13 +70,6 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
 
         userToCreate.password = await createHashPassword(userToCreate.password);
 
-        const userPermission = await Permission.findFirst({ where: { role: 'USER' } });
-
-        if (!userPermission) {
-            logger.error('User role permission not found');
-            return res.status(400).send({ message: "User role not found in the system" });
-        }
-
         const avatar = req.files?.['avatar']?.[0]?.filename || '';
         const documentPhoto = req.files?.['documentPhoto']?.[0]?.filename || '';
         const documentSelfie = req.files?.['documentSelfie']?.[0]?.filename || '';
@@ -96,14 +89,34 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
             return res.status(409).send({ message: "User with this email already exists" });
         }
 
+        // Buscar a permissão SUPERADMIN
+        const superAdminPermission = await Permission.findFirst({
+            where: { role: 'SUPERADMIN' }
+        });
+
+        if (!superAdminPermission) {
+            logger.error('SUPERADMIN permission not found');
+            return res.status(400).send({ message: "SUPERADMIN permission not found in the system" });
+        }
+
         const userResponse = await User.create({
             data: {
-                ...userToCreate,
-                avatar: avatar,
-                documentPhoto: documentPhoto,
-                documentSelfie: documentSelfie,
-                documentVerified: false, // Initially not verified
-                permission_id: userPermission.id
+                name: userToCreate.name,
+                email: userToCreate.email,
+                password: userToCreate.password,
+                cpf: userToCreate.cpf,
+                street: userToCreate.street,
+                number: userToCreate.number,
+                complement: userToCreate.complement || "",
+                neighborhood: userToCreate.neighborhood,
+                city: userToCreate.city,
+                state: userToCreate.state,
+                zipCode: userToCreate.zipCode,
+                avatar: avatar || "",
+                documentPhoto: documentPhoto || "",
+                documentSelfie: documentSelfie || "",
+                documentVerified: false,
+                permission_id: superAdminPermission.id
             },
             select: {
                 id: true,
@@ -117,7 +130,12 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
                 city: true,
                 state: true,
                 zipCode: true,
-                documentVerified: true
+                documentVerified: true,
+                Permission: {
+                    select: {
+                        role: true
+                    }
+                }
             }
         });
 
