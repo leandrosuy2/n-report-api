@@ -17,7 +17,8 @@ interface IUserCreateDTO {
     neighborhood: string,
     city: string,
     state: string,
-    zipCode: string
+    zipCode: string,
+    role?: string
 }
 
 interface IRequestWithFiles extends Request {
@@ -89,14 +90,17 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
             return res.status(409).send({ message: "User with this email already exists" });
         }
 
-        // Buscar a permissão SUPERADMIN
-        const superAdminPermission = await Permission.findFirst({
-            where: { role: 'SUPERADMIN' }
+        // Buscar a permissão pelo role
+        const permission = await Permission.findFirst({
+            where: { role: userToCreate.role || 'USER' }  // Se não especificar o role, usa USER como padrão
         });
 
-        if (!superAdminPermission) {
-            logger.error('SUPERADMIN permission not found');
-            return res.status(400).send({ message: "SUPERADMIN permission not found in the system" });
+        if (!permission) {
+            logger.error('Permission not found');
+            return res.status(400).send({ 
+                message: "Permission not found in the system",
+                details: "Available roles: SUPERADMIN, ADMIN, USER, GRUPO_DE_RISCO, GUARDINHA_DA_RUA"
+            });
         }
 
         const userResponse = await User.create({
@@ -116,7 +120,7 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
                 documentPhoto: documentPhoto || "",
                 documentSelfie: documentSelfie || "",
                 documentVerified: false,
-                permission_id: superAdminPermission.id
+                permission_id: permission.id
             },
             select: {
                 id: true,
@@ -143,6 +147,15 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
         res.status(201).send(userResponse);
     } catch (error: any) {
         logger.error('Error creating user:', { error: error.message, stack: error.stack });
+        
+        // Tratamento específico para erro de CPF duplicado
+        if (error.message?.includes('Unique constraint failed on the fields: (`cpf`)')) {
+            return res.status(409).send({
+                message: "CPF já cadastrado",
+                details: "Este CPF já está sendo usado por outro usuário"
+            });
+        }
+
         res.status(500).send({
             message: "Error creating user",
             details: error.message
@@ -531,11 +544,28 @@ const updateUser = async (userId: string, userToCreate: IUserCreateDTO, avatar: 
             }
         }
 
+        // Buscar a permissão pelo role se especificado
+        let permission_id = existingUser.permission_id;
+        if (userToCreate.role) {
+            const permission = await Permission.findFirst({
+                where: { role: userToCreate.role }
+            });
+
+            if (!permission) {
+                throw new Error('Permission not found in the system');
+            }
+            permission_id = permission.id;
+        }
+
+        // Remover o role do objeto de atualização
+        const { role, ...userData } = userToCreate;
+
         return await User.update({
             where: { id: userId },
             data: {
-                ...userToCreate,
-                avatar: avatar || existingUser.avatar
+                ...userData,
+                avatar: avatar || existingUser.avatar,
+                permission_id: permission_id
             },
             select: {
                 id: true,
