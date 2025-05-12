@@ -11,6 +11,7 @@ interface IUserCreateDTO {
     email: string,
     password: string,
     cpf: string,
+    phone: string,
     street: string,
     number: string,
     complement?: string,
@@ -33,12 +34,12 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
 
         // Validate required fields
         if (!userToCreate.name || !userToCreate.email || !userToCreate.password || !userToCreate.cpf ||
-            !userToCreate.street || !userToCreate.number || !userToCreate.neighborhood || 
+            !userToCreate.phone || !userToCreate.street || !userToCreate.number || !userToCreate.neighborhood || 
             !userToCreate.city || !userToCreate.state || !userToCreate.zipCode) {
             logger.error('Missing required fields for user creation');
             return res.status(400).send({ 
                 message: "Missing required fields",
-                details: "Name, email, password, CPF, and complete address are required"
+                details: "Name, email, password, CPF, phone, and complete address are required"
             });
         }
 
@@ -57,6 +58,15 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
             logger.error(`Invalid CPF format: ${userToCreate.cpf}`);
             return res.status(400).send({ 
                 message: "Invalid CPF format" 
+            });
+        }
+
+        // Validate phone format (11 digits)
+        const phoneRegex = /^\d{11}$/;
+        if (!phoneRegex.test(userToCreate.phone)) {
+            logger.error(`Invalid phone format: ${userToCreate.phone}`);
+            return res.status(400).send({ 
+                message: "Invalid phone format" 
             });
         }
 
@@ -90,6 +100,13 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
             return res.status(409).send({ message: "User with this email already exists" });
         }
 
+        // Check if user with phone already exists
+        const existingPhone = await User.findFirst({ where: { phone: userToCreate.phone } });
+        if (existingPhone) {
+            logger.warn(`Attempted to create user with existing phone: ${userToCreate.phone}`);
+            return res.status(409).send({ message: "User with this phone already exists" });
+        }
+
         // Buscar a permissão pelo role
         const permission = await Permission.findFirst({
             where: { role: userToCreate.role || 'USER' }  // Se não especificar o role, usa USER como padrão
@@ -109,6 +126,7 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
                 email: userToCreate.email,
                 password: userToCreate.password,
                 cpf: userToCreate.cpf,
+                phone: userToCreate.phone,
                 street: userToCreate.street,
                 number: userToCreate.number,
                 complement: userToCreate.complement || "",
@@ -127,6 +145,7 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
                 name: true,
                 email: true,
                 cpf: true,
+                phone: true,
                 street: true,
                 number: true,
                 complement: true,
@@ -153,6 +172,14 @@ const createUser = async (req: IRequestWithFiles, res: Response) => {
             return res.status(409).send({
                 message: "CPF já cadastrado",
                 details: "Este CPF já está sendo usado por outro usuário"
+            });
+        }
+
+        // Tratamento específico para erro de telefone duplicado
+        if (error.message?.includes('Unique constraint failed on the fields: (`phone`)')) {
+            return res.status(409).send({
+                message: "Telefone já cadastrado",
+                details: "Este telefone já está sendo usado por outro usuário"
             });
         }
 
@@ -328,6 +355,11 @@ const findAll = async (req: Request, res: Response) => {
                 name: true,
                 email: true,
                 cpf: true,
+                phone: true,
+                street: true,
+                number: true,
+                documentPhoto: true,
+                documentSelfie: true,
                 avatar: true,
                 created_at: true,
                 updated_at: true,

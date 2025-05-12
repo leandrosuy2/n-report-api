@@ -66,6 +66,7 @@ async function main() {
         email: 'superadmin@admin.com',
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '00000000000',
+        phone: '11999999999',
         avatar: 'default.png',
         street: 'Rua Super Admin',
         number: '0',
@@ -90,6 +91,7 @@ async function main() {
         email: 'admin@admin.com',
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '11111111111',
+        phone: '11999999998',
         avatar: 'default.png',
         street: 'Rua Administrador',
         number: '1',
@@ -114,6 +116,7 @@ async function main() {
         email: 'user1@example.com',
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '22222222222',
+        phone: '11999999997',
         avatar: 'default.png',
         street: 'Rua Usuário Um',
         number: '2',
@@ -138,6 +141,7 @@ async function main() {
         email: 'user2@example.com',
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '33333333333',
+        phone: '11999999996',
         avatar: 'default.png',
         street: 'Rua Usuário Dois',
         number: '3',
@@ -162,6 +166,7 @@ async function main() {
         email: 'user3@example.com',
         password: '$2a$12$VzyiYB1dcMrwIhyYQVld.O.lGk2CwinYQUz7EnodiLf0ecZKg9fOa', // senha: admin123
         cpf: '44444444444',
+        phone: '11999999995',
         avatar: 'default.png',
         street: 'Rua Usuário Três',
         number: '4',
